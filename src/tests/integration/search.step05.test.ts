@@ -56,6 +56,19 @@ describe("STEP-05 search and browse services", () => {
     expect(bodyMatches.map((item) => item.id)).not.toContain(linkId);
   });
 
+  it("handles hyphenated search terms without returning stale or remote body matches", async () => {
+    const linkId = await saveLink(
+      { title: "Metadata Link", url: "https://example.com/metadata-only" },
+      client,
+    );
+    const metadataMatches = await searchItems("metadata-only", {}, client);
+    const remoteBodyMatches = await searchItems("remote-webpage-body-token", {}, client);
+
+    expect(metadataMatches.map((item) => item.id)).toContain(linkId);
+    expect(remoteBodyMatches.map((item) => item.id)).not.toContain(linkId);
+    expect(remoteBodyMatches).toHaveLength(0);
+  });
+
   it("filters by item type", async () => {
     await createNote({ title: "Type note", body: "typed text" }, client);
     await saveLink({ title: "Type link", url: "https://example.com" }, client);

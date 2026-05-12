@@ -16,6 +16,14 @@ interface SearchRow {
   collection_id: string | null;
 }
 
+function toFtsQuery(input: string): string {
+  const terms = input
+    .split(/[^\p{L}\p{N}_]+/u)
+    .map((term) => term.trim())
+    .filter(Boolean);
+  return terms.map((term) => `"${term.replaceAll('"', '""')}"`).join(" ");
+}
+
 export class SearchRepository {
   constructor(private readonly client: SqlClient) {}
 
@@ -32,8 +40,13 @@ export class SearchRepository {
   }
 
   async searchIndex(query: string, filters: ItemQueryFilters = {}): Promise<ItemRecord[]> {
+    const ftsQuery = toFtsQuery(query);
+    if (!ftsQuery) {
+      return [];
+    }
+
     const clauses = ["s.item_id = i.id", "item_search MATCH ?"];
-    const params: unknown[] = [query];
+    const params: unknown[] = [ftsQuery];
     if (filters.type) {
       clauses.push("i.type = ?");
       params.push(filters.type);

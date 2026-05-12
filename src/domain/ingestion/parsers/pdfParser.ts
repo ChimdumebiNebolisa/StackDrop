@@ -1,4 +1,9 @@
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
+
+if (typeof window !== "undefined") {
+  GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+}
 
 export async function parsePdfFromBytes(bytes: Uint8Array): Promise<string> {
   const loadingTask = getDocument({ data: bytes });

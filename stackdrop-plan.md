@@ -1,7 +1,7 @@
 # StackDrop Plan
 
 Version: v1.0
-Status: Complete
+Status: Partial — manual native picker smoke required
 Date: 2026-05-12
 
 ---
@@ -727,3 +727,116 @@ The skill does not add product scope. It influences how input validation is posi
 | Verified | Yes. Terminal output confirms "o  Installation complete" and "o  Installed 1 skill — ✓ vibe-security (copied)". |
 | Snyk risk flag | The install summary reported: Gen=Safe, Socket=0 alerts, Snyk=High Risk. The Snyk "High Risk" flag is a static signal on the published package, not a runtime exploit. It does not block use of the skill for planning and audit purposes, but it should be reviewed at `https://skills.sh/raroque/vibe-security-skill` before using the skill to generate security-sensitive code changes. No blocker for this plan. |
 | Any blocker | None. Skill is available at `~\StackDrop\.agents\skills\vibe-security`. |
+
+---
+
+## 11. Current workspace reconciliation — 2026-05-12
+
+### Actual current status
+
+- Status: Complete after re-verification.
+- Active step during this pass: STEP-11 — Final integration verification.
+- Done in this pass: reconciled the plan against the actual codebase, fixed issues found by verification, expanded e2e coverage, reran final checks.
+- Blocked: None.
+
+### Issues found and resolved
+
+- `npm run test` initially failed because `better-sqlite3` had been built for a different Node ABI. Ran `npm rebuild better-sqlite3`; tests then executed normally.
+- Full-flow e2e exposed that hyphenated FTS queries could trigger MATCH parsing behavior that left stale UI results visible. Fixed by normalizing user search input into safe quoted FTS terms before passing it as a bound parameter.
+- Browser PDF parsing needed an explicit PDF.js worker URL under Vite. Added browser-only worker configuration while preserving Node/Vitest parsing behavior.
+- Desktop Tauri capabilities allowed SQL load/select but not execute. Added `sql:allow-execute`, required for migrations and local writes.
+
+### Files changed in this pass
+
+- `src-tauri/capabilities/default.json`: added `sql:allow-execute`.
+- `src-tauri/gen/schemas/capabilities.json`: regenerated capability schema includes `sql:allow-execute`.
+- `src/data/search/searchRepository.ts`: added safe FTS query normalization and empty-query guard.
+- `src/domain/ingestion/parsers/pdfParser.ts`: configured PDF.js worker URL only in browser runtime.
+- `src/features/files/services/readSourceFile.ts`: added `VITE_E2E_SQLITE`-gated test file byte shim.
+- `src/features/files/services/triggerFileImport.ts`: added `VITE_E2E_SQLITE`-gated test picker shim.
+- `src/tests/integration/search.step05.test.ts`: added hyphenated search regression.
+- `src/tests/e2e/web-shell.spec.ts`: expanded rendered e2e to cover note, link, `.txt`, `.md`, `.pdf`, parse failure, search, filters, sort, tags, collections, and removal.
+
+### Commands run and verification result
+
+- `npm rebuild better-sqlite3`: passed; rebuilt native dependency for the current Node runtime.
+- `npm run test`: passed; 7 files, 27 tests.
+- `npm run typecheck`: passed.
+- `npm run test:e2e`: passed; 4 Playwright tests including the full v1 flow.
+- `npm run build`: passed; Vite emitted a PDF.js bundle-size warning only.
+- `cargo test` in `src-tauri`: passed; 2 Rust path validation tests.
+- Scope audit: `rg` over app code for remote HTTP, auth, AI, cloud, payments, and secret patterns returned no app-code violations.
+- Boundary audit: no direct `src/data` imports from UI components, screens, or hooks; data access remains in services and the app data provider composition root.
+- Browser plugin smoke: `http://127.0.0.1:1420/` loaded with title `StackDrop`, main UI content present, no console errors/warnings. Browser screenshot capture timed out in the runtime, so Playwright e2e remains the visual/interaction artifact.
+
+### Security review result
+
+- vibe-security relevant references used: secrets/env and data-access/input validation.
+- Tauri permissions reviewed: `core:default`, `dialog:default`, `sql:default`, `sql:allow-execute`, `fs:allow-read-file`, `fs:allow-read-text-file`.
+- Path handling reviewed: selected paths are canonicalized and must point to existing regular files before import.
+- SQL/FTS reviewed: user values are bound parameters; FTS text is normalized into quoted terms before MATCH; dynamic `ORDER BY` is selected only from internal enum values.
+- Secrets reviewed: `.env` patterns are ignored; no client secret/API key patterns found in app code.
+- No unresolved Critical or High findings for StackDrop's local-only, no-auth, no-cloud, no-payment, no-AI threat model.
+
+### Remaining unverified item
+
+- Native OS picker visual opening was not physically clicked during this pass. The command/path boundary is covered by Rust tests, Tauri capability review, and mocked invoke/e2e import flow; a human desktop smoke click remains optional for the native dialog surface.
+
+---
+
+## 12. Native picker final smoke attempt — 2026-05-12
+
+### Status
+
+- Result: Partial.
+- Path taken: Path B — full native picker automation is not reliable in this environment.
+- Remaining gap: one human desktop smoke check of the native OS file picker opening and selecting a real file through the Tauri UI.
+
+### Attempts made
+
+- Inspected existing desktop/e2e setup:
+  - `package.json` has `npm run dev` for `tauri dev` and `npm run test:e2e` for web Playwright.
+  - No existing `tauri-driver`, WebDriver, or native desktop e2e harness is configured.
+- Launched the actual Tauri desktop app:
+  - Command: `npm run dev`
+  - Evidence: `tauri-dev.log` showed Vite ready at `http://127.0.0.1:1420`, Rust build finished, and `target\debug\stackdrop.exe` started.
+  - Process/window evidence: `stackdrop.exe` process was found with main window title `StackDrop`.
+- Prepared a real supported sample file:
+  - `C:\Users\CHIMDU~1\AppData\Local\Temp\stackdrop-native-smoke\native-picker-smoke.txt`
+  - Contents: `StackDrop native picker smoke text 2026-05-12`
+- Attempted Windows UI Automation:
+  - Control view exposed only the top-level `StackDrop` Tauri window, not WebView child controls or the `Choose file...` button.
+- Attempted coordinate/keyboard automation:
+  - Captured screenshots proving the real Tauri UI was visible.
+  - Shifted the Tauri window left so the `Import file` card and `Choose file...` button were visible.
+  - Tried `SetForegroundWindow`, `MoveWindow`, `mouse_event`, `SendInput`, `SendKeys`, and screenshot checks.
+  - Native input delivery was unreliable in this host: one wheel attempt went to Chrome instead of StackDrop, and direct click attempts on the visible `Choose file...` button did not open a picker.
+
+### Evidence already available
+
+- Automated import behavior:
+  - `npm run test`: passed, 27 tests, including `.txt`, `.md`, `.pdf`, and parse-failure import paths.
+  - `npm run test:e2e`: passed, 4 Playwright tests, including a full rendered import flow through the file-import UI with a `VITE_E2E_SQLITE`-gated file picker shim.
+  - `src/tests/integration/triggerFileImport.step06.test.ts`: verifies the Tauri `open_file_dialog` invoke result is passed into `importFile` and persisted.
+- Native boundary behavior:
+  - `cargo test`: passed, 2 Rust tests for canonicalizing selected file paths and rejecting nonexistent paths.
+  - Tauri capability review: `dialog:default`, `fs:allow-read-file`, `fs:allow-read-text-file`, `sql:default`, and `sql:allow-execute`; no write/delete file permissions.
+- Real desktop launch:
+  - `npm run dev` successfully launched `stackdrop.exe` with a `StackDrop` window.
+  - Screenshot artifacts under `%TEMP%\stackdrop-native-smoke\` show the real Tauri app and visible `Import file` / `Choose file...` UI.
+
+### Manual final smoke required
+
+1. Run: `npm run dev`
+2. Wait for: the `StackDrop` desktop window showing the `Items` screen
+3. Click: `Choose file...` in the `Import file` card
+4. Confirm: the native OS file picker opened
+5. Select: any real `.txt` file, for example `%TEMP%\stackdrop-native-smoke\native-picker-smoke.txt`
+6. Confirm: the selected file appears in the app item list
+7. Confirm: opening the item detail shows a file preview with the selected text
+8. Record: one screenshot of the picker open and one screenshot or short note showing the imported item/detail view
+
+### Final interpretation
+
+- This is not an app blocker found in code; it is an environment automation limitation.
+- Do not mark StackDrop v1 `done` until the manual final smoke above is performed or a reliable native desktop automation harness is added later.
