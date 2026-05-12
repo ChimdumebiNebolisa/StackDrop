@@ -13,7 +13,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::file_commands::open_folder_dialog,
             commands::file_commands::discover_supported_files,
-            commands::file_commands::read_file_bytes_under_root
+            commands::file_commands::read_file_bytes_under_root,
+            commands::file_commands::get_default_document_roots,
+            commands::file_commands::app_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running StackDrop");

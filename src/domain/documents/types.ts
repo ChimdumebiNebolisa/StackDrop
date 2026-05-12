@@ -1,4 +1,4 @@
-export type FileExtension = "txt" | "md" | "pdf";
+export type FileExtension = "txt" | "pdf" | "docx";
 
 export type ParseStatus = "indexed" | "failed";
 

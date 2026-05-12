@@ -1,7 +1,7 @@
 # StackDrop Guardrails
 
-Version: v1.1 (folder indexing)  
-Status: Active  
+Version: v1.3 (core document types)
+Status: Active
 Date: 2026-05-12
 
 ## 1. Purpose
@@ -10,87 +10,75 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 
 ## 2. Scope control
 
-- No feature ships unless it is a **must-have** in the current `stackdrop-prd.md` or explicitly promoted there first.
+- No feature ships unless it is a **must-have** in [`stackdrop-prd.md`](stackdrop-prd.md) or promoted there first.
 - If implementation discovers a missing requirement, **stop** and update the PRD before coding the behavior.
-- Only **must-have** PRD items belong in the active initial plan in `stackdrop-plan.md`.
-- Should-have / nice-to-have are forbidden until all must-haves are verified.
+- Only **must-have** PRD items belong in the active plan in [`stackdrop-plan.md`](stackdrop-plan.md).
 
 ## 3. Boundary control
 
-- No ownership change (UI scanning disk, UI writing DB, parsing inside Tauri unrelated to IO) without an **Architecture** update first.
 - **UI** must not recursively scan the filesystem or read arbitrary paths.
-- **UI** must not write directly to persistence (no `SqlClient` / repositories from screens/hooks except the app composition root pattern documented in Architecture).
-- **OS path policy** (canonicalize, directory vs file, root containment) lives in the **Tauri** layer or a dedicated infra module invoked only from services—not in presentational components.
+- **UI** must not write SQLite directly (use services / documented composition root).
+- Path canonicalization and **root containment** for reads live in **Tauri** (or dedicated infra used only from services).
 - No remote backend, cloud SDK, auth, sync, or AI imports in product code paths.
 
 ## 4. Implementation rules
 
 - No unrelated refactors.
-- **No placeholder logic** in indexing, scan, persistence, or search paths (no fake FTS data, no “TODO” returns on success paths).
-- **No silent parse failures**: failures must set `parse_status` / `parse_error` and must surface to the UI when that document is shown or listed.
-- **No silent skips** where user expectation is “this path was considered”: unsupported extensions must not appear as `indexed`; optional scan summaries should report skipped counts deterministically.
-- **Never delete or mutate user files on disk** from StackDrop v1 code paths.
-- Deterministic validation before optional heuristics (e.g. normalize query → FTS string; validate path under root before read).
-- Core flows expose **loading**, **success**, and **failure** states in the UI where applicable.
+- **No placeholder logic** on indexing, scan, persistence, or search success paths.
+- **No silent parse failures** — `parse_status` / `parse_error` must reflect reality in DB and UI.
+- **Never delete or mutate user files on disk** from StackDrop.
+- Supported extensions in product code and schema: **`.txt`**, **`.pdf`**, **`.docx`** only (stored as `txt` \| `pdf` \| `docx`).
+- Deterministic validation before heuristics (query normalization, path-under-root checks).
+- Core flows expose **idle / scanning / completed / completed-with-errors** (or equivalent) where applicable.
 
 ## 5. Verification rules
 
-- Never claim a behavior works without a **verification artifact** (unit test, integration test, e2e, typecheck, lint, logs, or documented manual checklist item).
-- A plan step is not done until its verification passes.
+- Never claim a behavior works without a **verification artifact** (unit test, integration test, e2e, typecheck, logs, or documented manual checklist item).
 - If verification is partial, state exactly what was and was not verified.
 
-## 6. Folder indexing: required checks
+## 6. Indexing: required checks
 
-### Folder selection safety
+### Root safety
 
-- Canonicalize selected folder; reject non-directories; reject unreadable roots with explicit errors.
+- Default roots come from OS APIs and are canonical directories.
+- User-added roots: canonicalize; reject non-directories; reject reads outside root.
 
-### Recursive scan correctness
+### Recursive scan
 
-- Integration or unit tests with a **fixture directory tree** proving nested discovery for `.txt`/`.md`/`.pdf`.
-- Unsupported extensions present in fixtures must **not** become `indexed` searchable rows.
+- Fixtures prove nested discovery for supported extensions including **`.docx`**.
 
-### Path normalization / containment
+### Path containment
 
-- Any `read_file_bytes_for_root(path, root)`-style API must reject paths outside the canonical root (tests include traversal attempts).
+- `read_file_bytes_under_root` rejects traversal / paths outside canonical root (Rust tests).
 
 ### Parse status
 
-- Tests for: indexed success, failed parse on supported type, deterministic error strings or codes stored.
+- Tests for indexed success, failed parse, and stored errors.
 
 ### Index freshness
 
-- Document behavior in Plan: manual rescan replaces/updates rows for files still present; documents for deleted files are removed on rescan (explicit rule—must match implementation and tests).
-
-### Unsupported files
-
-- Not indexed as searchable content; never inserted into FTS as if parsed.
+- Re-scan removes DB rows for files no longer on disk under that root; never deletes disk files.
 
 ### Remove folder
 
-- Deleting a folder registration **does not** call host file delete APIs; DB cascade removes documents only.
+- Removing a root only removes app state (cascade); no host file delete APIs.
 
 ## 7. Search / SQL safety
 
-- FTS queries must use **bound parameters** for user text after deterministic normalization (e.g. quoted term splitting); no string concatenation of raw user input into SQL beyond safe, internal `ORDER BY` switches.
+- FTS `MATCH` uses bound parameters after deterministic normalization of user input; no raw concatenation of user text into SQL.
 
-## 8. Security integration (vibe-security relevant subset)
+## 8. Security (Tauri + data)
 
-For each change touching **Tauri capabilities**, **path handling**, or **SQL/FTS**:
+- Review **capabilities** on every change — minimum necessary permissions.
+- Review path traversal, SQL/FTS injection footguns, secrets (none expected).
 
-- Review capability grants—minimum necessary permissions.
-- Review path traversal / canonicalization.
-- Review SQL injection and MATCH injection footguns.
-- Review secrets—none expected; `.gitignore` for env files; no `VITE_*` secrets pattern.
+## 9. Health
 
-Critical/High issues on these surfaces must be resolved before claiming the related plan step done.
-
-## 9. Reporting format (non-trivial steps)
-
-Each implementation step reports: goal, facts, assumptions, files changed, verification commands + results, status (`done` / `partial` / `blocked`), remaining uncertainty.
+- **No** decorative HTTP health endpoints for a desktop-only app.
+- Use **Tauri `app_health`** (or equivalent) + optional in-app diagnostic composition in TS.
 
 ## 10. Definition of done (v1)
 
-- All PRD must-haves implemented and evidenced.
-- No unresolved guardrail violations on the checklist above.
-- No out-of-scope capabilities introduced without PRD change.
+- PRD must-haves implemented and evidenced.
+- README lists supported types (`.txt`, `.pdf`, `.docx`) and honest limitations (e.g. PDF text layer).
+- No guardrail violations on the checklist above.

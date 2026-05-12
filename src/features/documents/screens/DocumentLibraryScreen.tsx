@@ -4,10 +4,27 @@ import { Link } from "react-router-dom";
 import { useAppData } from "../../../app/providers/AppDataProvider";
 import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus } from "../../../domain/documents/types";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
+import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
 import { listIndexedFolders } from "../../folders/services/listIndexedFolders";
 import { removeIndexedFolder } from "../../folders/services/removeIndexedFolder";
+import { runAllFolderScans, type LibraryScanSummary } from "../../folders/services/runAllFolderScans";
 import { runFolderScan } from "../../folders/services/runFolderScan";
+import { invokeAppHealth, type AppHealthDto } from "../../folders/services/tauriFolderFs";
 import { queryDocuments } from "../services/queryDocuments";
+
+type ScanPhase = "idle" | "scanning" | "completed" | "completed_with_errors";
+
+function summarizePhase(summary: LibraryScanSummary | null, phase: ScanPhase): string {
+  if (phase === "scanning") return "Scanning…";
+  if (phase === "idle" && !summary) return "Idle — click Index library to scan.";
+  if (!summary) return "Idle";
+  if (summary.rootsTotal === 0) return "No indexed locations — add a folder or reinstall defaults on next launch.";
+  const base = `Last run: ${summary.discovered} file(s) found, ${summary.indexed} indexed, ${summary.failed} failed across ${summary.rootsCompleted} location(s).`;
+  if (phase === "completed_with_errors" || summary.errors.length > 0) {
+    return `${base} Warnings: ${summary.errors.join("; ") || "parse/read failures"}.`;
+  }
+  return `${base} Completed.`;
+}
 
 export function DocumentLibraryScreen() {
   const { client, loadState, bumpDataVersion, dataVersion } = useAppData();
@@ -19,6 +36,9 @@ export function DocumentLibraryScreen() {
   const [parseFilter, setParseFilter] = useState<"" | ParseStatus>("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanPhase, setScanPhase] = useState<ScanPhase>("idle");
+  const [lastSummary, setLastSummary] = useState<LibraryScanSummary | null>(null);
+  const [shellHealth, setShellHealth] = useState<AppHealthDto | null>(null);
 
   const filters = useMemo(
     () => ({
@@ -40,6 +60,30 @@ export function DocumentLibraryScreen() {
     void queryDocuments(client, searchText, filters).then(setDocuments);
   }, [client, loadState, dataVersion, searchText, filters]);
 
+  useEffect(() => {
+    void invokeAppHealth()
+      .then(setShellHealth)
+      .catch(() => setShellHealth(null));
+  }, []);
+
+  const onIndexLibrary = async () => {
+    if (!client || loadState !== "ready") return;
+    setError(null);
+    setScanPhase("scanning");
+    setBusy(null);
+    try {
+      await ensureDefaultLibraryRoots(client);
+      const summary = await runAllFolderScans(client);
+      setLastSummary(summary);
+      const hasIssues = summary.failed > 0 || summary.errors.length > 0;
+      setScanPhase(hasIssues ? "completed_with_errors" : "completed");
+      bumpDataVersion();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setScanPhase("completed_with_errors");
+    }
+  };
+
   const onAddFolder = async () => {
     if (!client || loadState !== "ready") return;
     setError(null);
@@ -47,7 +91,7 @@ export function DocumentLibraryScreen() {
     try {
       const id = await addIndexedFolder(client);
       if (id) {
-        setBusy("Scanning…");
+        setBusy("Scanning new folder…");
         await runFolderScan(id, client);
       }
       bumpDataVersion();
@@ -62,11 +106,14 @@ export function DocumentLibraryScreen() {
     if (!client || loadState !== "ready") return;
     setError(null);
     setBusy("Scanning…");
+    setScanPhase("scanning");
     try {
       await runFolderScan(folderId, client);
+      setScanPhase("completed");
       bumpDataVersion();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setScanPhase("completed_with_errors");
     } finally {
       setBusy(null);
     }
@@ -95,23 +142,40 @@ export function DocumentLibraryScreen() {
     return <p className="error">Failed to load database.</p>;
   }
 
+  const statusLine = summarizePhase(lastSummary, scanPhase);
+
   return (
     <div className="stack">
       <header className="page-header">
         <h1>Documents</h1>
-        <p className="muted">Indexed folders: {folders.length}</p>
+        <p className="muted">
+          Indexed locations: {folders.length}
+          {shellHealth ? ` · Shell ${shellHealth.ok ? "OK" : "issue"} (v${shellHealth.packageVersion})` : null}
+        </p>
       </header>
 
       {error ? <p className="error">{error}</p> : null}
       {busy ? <p className="muted">{busy}</p> : null}
 
+      <section className="card" aria-labelledby="index-heading">
+        <h2 id="index-heading">Library index</h2>
+        <p className="muted" role="status" aria-live="polite">
+          {statusLine}
+        </p>
+        <div className="folder-actions" style={{ marginTop: "0.75rem", gap: "0.5rem", display: "flex", flexWrap: "wrap" }}>
+          <button type="button" className="primary" onClick={() => void onIndexLibrary()} disabled={scanPhase === "scanning" || !!busy}>
+            Index library
+          </button>
+          <button type="button" onClick={() => void onAddFolder()} disabled={scanPhase === "scanning" || !!busy}>
+            Add folder…
+          </button>
+        </div>
+      </section>
+
       <section className="card" aria-labelledby="folders-heading">
-        <h2 id="folders-heading">Indexed folders</h2>
-        <button type="button" onClick={() => void onAddFolder()} disabled={!!busy}>
-          Add folder…
-        </button>
+        <h2 id="folders-heading">Indexed locations</h2>
         {folders.length === 0 ? (
-          <p className="muted">No folders yet. Add a folder to begin indexing.</p>
+          <p className="muted">No locations yet. Defaults are added when the app starts with an empty library, or use Add folder.</p>
         ) : (
           <ul className="folder-list">
             {folders.map((f) => (
@@ -125,11 +189,11 @@ export function DocumentLibraryScreen() {
                   </div>
                 </div>
                 <div className="folder-actions">
-                  <button type="button" onClick={() => void onRescan(f.id)} disabled={!!busy}>
+                  <button type="button" onClick={() => void onRescan(f.id)} disabled={scanPhase === "scanning" || !!busy}>
                     Re-scan
                   </button>
                   <form onSubmit={(e) => void onRemoveFolder(e, f.id)}>
-                    <button type="submit" disabled={!!busy}>
+                    <button type="submit" disabled={scanPhase === "scanning" || !!busy}>
                       Remove from StackDrop
                     </button>
                   </form>
@@ -153,9 +217,9 @@ export function DocumentLibraryScreen() {
         </label>
         <div className="filters">
           <label className="field">
-            <span>Folder</span>
-            <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)} aria-label="Filter by folder">
-              <option value="">All folders</option>
+            <span>Location</span>
+            <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)} aria-label="Filter by indexed location">
+              <option value="">All locations</option>
               {folders.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.rootPath}
@@ -172,8 +236,8 @@ export function DocumentLibraryScreen() {
             >
               <option value="">All types</option>
               <option value="txt">.txt</option>
-              <option value="md">.md</option>
               <option value="pdf">.pdf</option>
+              <option value="docx">.docx</option>
             </select>
           </label>
           <label className="field">

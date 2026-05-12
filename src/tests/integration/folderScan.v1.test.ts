@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestSqlClient } from "../../data/db/createTestSqlClient";
@@ -54,6 +56,34 @@ describe("folder scan orchestration", () => {
     const hits = await queryDocuments(client, "unique-stackdrop-scan-token", {});
     expect(hits).toHaveLength(1);
     expect(hits[0].fileName).toBe("a.txt");
+    expect(hits[0].parseStatus).toBe("indexed");
+  });
+
+  it("indexes docx and finds fixture token via content search", async () => {
+    const folderId = crypto.randomUUID();
+    await new FolderRepository(client).insertFolder({
+      id: folderId,
+      rootPath: "C:\\fixture-root",
+      createdAt: new Date().toISOString(),
+    });
+    const docxBytes = await readFile(join(process.cwd(), "src/tests/fixtures/minimal.docx"));
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles).mockResolvedValue([
+      {
+        absolutePath: "C:\\fixture-root\\w.docx",
+        relativePath: "w.docx",
+        fileName: "w.docx",
+        extension: "docx",
+        sizeBytes: docxBytes.length,
+        modifiedAtMs: Date.now(),
+      },
+    ]);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockResolvedValue(new Uint8Array(docxBytes));
+
+    await runFolderScan(folderId, client);
+
+    const hits = await queryDocuments(client, "stackdrop-docx-fixture-token", {});
+    expect(hits).toHaveLength(1);
+    expect(hits[0].fileName).toBe("w.docx");
     expect(hits[0].parseStatus).toBe("indexed");
   });
 

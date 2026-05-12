@@ -1,12 +1,19 @@
 # StackDrop Architecture
 
-Version: v1.1 (folder indexing)  
-Status: Locked for v1 build  
+Version: v1.3 (core document types)
+Status: Locked for v1 build
 Date: 2026-05-12
 
 ## 1. Architecture goal
 
-Define clear boundaries for a **local-first**, **single-user** desktop app that **indexes documents under user-selected folders**, **persists index state locally**, and **searches** by name and content—without accounts, remote services, or implicit full-disk indexing.
+Define boundaries for a **local-first**, **single-user** desktop app that:
+
+1. Registers **search roots** (default user-document locations plus optional user-added folders).
+2. **Indexes** supported documents under those roots only.
+3. **Persists** index state in **SQLite + FTS5**.
+4. **Searches** by name and content with typed filters.
+
+No accounts, no remote services, no implicit full-disk indexing.
 
 ## 2. Major system parts
 
@@ -14,195 +21,168 @@ Define clear boundaries for a **local-first**, **single-user** desktop app that 
 
 **Ownership**
 
-- Native window lifecycle.
-- **Folder** and optional **file** pickers (dialog).
-- OS path canonicalization and **safety checks** for paths returned to the TypeScript layer.
-- **Recursive filesystem discovery** for supported extensions under a **validated** folder root (Rust), returning structured file metadata (path, size, modified time)—not business parsing rules.
+- Window lifecycle.
+- Folder picker.
+- **Default document root resolution** (canonical paths for Documents / Desktop / Downloads via OS-appropriate APIs).
+- **Optional:** `app_health` (or similarly named) command returning **structured JSON** for shell-side diagnostics (version, basic readiness). **Not** an HTTP server.
+- Recursive filesystem discovery for **allowed extensions** under a **validated** root.
+- Safe byte reads with **root containment** checks (`path_utils`).
 
 **Does not own**
 
-- PDF/text parsing policy beyond reading bytes safely.
-- SQLite schema or FTS population rules.
-- Search ranking policy beyond what SQLite FTS provides.
+- SQLite business rules beyond what commands require for IO.
+- FTS ranking policy beyond SQLite defaults.
 
-### 2.2 UI application (React + TypeScript)
+### 2.2 UI (React + TypeScript)
 
 **Ownership**
 
-- Screens, routes, presentation state, loading/empty/error UI.
-- Calls **application services** through explicit functions/hooks.
+- Primary **Index library** action, search UI, filters, detail screens, scan status presentation.
 
 **Does not own**
 
-- Direct recursive directory scanning (no `fs` walk in components).
-- Direct SQLite writes (no repository calls from `screens/` / `hooks/` except the documented composition root if any).
+- Recursive disk walks outside services.
+- Direct SQL from presentational components.
 
 ### 2.3 Application services (TypeScript)
 
 **Ownership**
 
-- Use cases: **register folder**, **remove folder**, **run manual scan**, **list documents**, **get document detail**, **search**.
-- Validation of inputs that are not OS-level (e.g. empty query behavior, filter enums).
-- Orchestration: invoke shell discovery → read bytes via shell or approved IO → call parser → persist via repositories → update FTS.
+- **`ensureDefaultLibraryRoots(client)`** — if no folders registered, insert default roots from shell command.
+- **`runAllFolderScans(client)`** — orchestrate `runFolderScan` for each root sequentially; aggregate counts for UI.
+- **`runFolderScan(folderId, client)`** — existing per-root pipeline: discover → read → parse → persist → FTS sync → prune missing paths.
+- Search, list, detail, folder CRUD, validation.
 
 **Does not own**
 
-- Raw SQL string building scattered in UI.
-- OS-specific path canonicalization (delegates to shell).
+- OS path canonicalization (delegates to Tauri).
 
 ### 2.4 Parsing layer (TypeScript)
 
 **Ownership**
 
-- Format-specific parsers for **`.txt`**, **`.md`**, **`.pdf`**.
-- Structured **parse result**: success with text, or failure with explicit error (no swallowed exceptions in the public API).
+- **`.txt`**, **`.pdf`**, **`.docx`** (e.g. **mammoth** for `.docx` → plain text).
+- Explicit **parse result** types; no swallowed failures on the public API.
 
 **Does not own**
 
 - Filesystem traversal.
 - Persistence.
 
-### 2.5 Persistence and search store (SQLite + FTS5)
+### 2.5 Persistence (SQLite + FTS5)
 
 **Ownership**
 
-- `indexed_folders`, `indexed_documents`, optional `scan_runs` (or equivalent), and FTS virtual table for document search.
-- CRUD for folders and documents and transactional updates around scan batches.
-- Parameterized search queries (FTS `MATCH` + filters).
+- Tables: `indexed_folders`, `indexed_documents`, `document_search` (FTS5), `scan_runs`.
+- Migrations for schema evolution (canonical extension set `txt` \| `pdf` \| `docx`).
+- Parameterized search (`MATCH` + bound parameters after query normalization).
 
-**Does not own**
+## 3. Interfaces (“API” for this desktop app)
 
-- UI state.
-- Dialogs.
-- Parsing bytes from disk.
+There is **no** required HTTP backend. Contracts are:
 
-## 3. Interfaces between parts
+### Tauri commands (Rust → TS)
 
-### UI → application services
+Illustrative names (see code for exact identifiers):
 
-Allowed (illustrative):
+| Command | Role |
+|--------|------|
+| `open_folder_dialog` | Optional folder picker |
+| `get_default_document_roots` | Returns canonical default root paths + labels |
+| `discover_supported_files` | Lists supported files under one root |
+| `read_file_bytes_under_root` | Reads file bytes if path is under root |
+| `app_health` | JSON status: shell alive, package version, etc. |
 
-- `listIndexedFolders()`
-- `addIndexedFolder()` → triggers dialog + register path
-- `removeIndexedFolder(folderId)`
-- `rescanFolder(folderId)`
-- `listDocuments(filters)`
-- `getDocumentDetail(documentId)`
-- `searchDocuments(query, filters)`
+### TypeScript services
 
-**Rule:** UI never writes SQLite directly.
+| Function | Role |
+|----------|------|
+| `ensureDefaultLibraryRoots(client)` | Seed defaults when registry empty |
+| `runAllFolderScans(client)` | One-click scan all roots |
+| `runFolderScan(folderId, client)` | Single-root scan |
+| `listIndexedFolders`, `addIndexedFolder`, `removeIndexedFolder` | Root registry |
+| `queryDocuments`, `getDocumentDetail` | Read models + search |
 
-### Application services → desktop shell
+**Rule:** UI calls services only; services own validation and orchestration.
 
-Allowed:
+### Example usage (documentation contract)
 
-- `open_folder_dialog() -> Option<String>` (canonical folder path)
-- `discover_supported_files(root_path) -> Vec<DiscoveredFile>`
-- `read_file_bytes_for_root(path, root_path) -> Vec<u8>` (must validate `path` is under `root_path` after canonicalization)
+```typescript
+import type { SqlClient } from "./data/db/sqliteClient";
+import { ensureDefaultLibraryRoots } from "./features/folders/services/ensureDefaultLibraryRoots";
+import { runAllFolderScans } from "./features/folders/services/runAllFolderScans";
 
-**Rule:** The shell rejects paths that fail canonicalization or root containment checks.
+export async function indexEntireLibrary(client: SqlClient): Promise<void> {
+  await ensureDefaultLibraryRoots(client);
+  await runAllFolderScans(client);
+}
+```
 
-### Application services → parsing
+```typescript
+import { invoke } from "@tauri-apps/api/core";
 
-- `parseDocument(bytes, extension) -> ParseResult`
-
-### Application services → persistence
-
-- Repository methods for folders, documents, FTS rows, scan metadata.
-
-**Rule:** Parsing and indexing failures are **explicit** in stored `parse_status` / error fields and in return values to the UI.
+const health = await invoke<{ ok: boolean; packageVersion: string }>("app_health");
+```
 
 ## 4. Core entities
 
 ### IndexedFolder
 
-- `id` (stable string UUID)
-- `rootPath` (canonical absolute path string)
-- `createdAt`
-- `lastScanAt` (nullable until first successful scan completes)
+- `id`, `rootPath` (unique), `createdAt`, `lastScanAt`
 
 ### IndexedDocument
 
-- `id`
-- `folderId` (FK → IndexedFolder)
-- `absolutePath` (unique)
-- `relativePath` (relative to folder root)
-- `fileName`
-- `fileExtension` (`txt` | `md` | `pdf`)
-- `sizeBytes`
-- `modifiedAt` (ISO string from discovery)
-- `parseStatus` (`indexed` | `failed` | `unsupported` if stored)
-- `parseError` (nullable)
-- `extractedText` (nullable; bounded preview acceptable if documented in Plan)
-- `updatedAt`
+- `id`, `folderId`, paths, `fileName`, `fileExtension` (`txt` \| `pdf` \| `docx`), size, modified time, `parseStatus`, `parseError`, `extractedText`, `updatedAt`
 
-### ScanRun (optional but recommended)
+### ScanRun
 
-- `id`, `folderId`, `startedAt`, `finishedAt`, counters (`filesDiscovered`, `indexed`, `failed`, `skippedUnsupported`)
+- Per-folder run record with timestamps and file counters.
 
-### SearchQuery / SearchResult (logical shapes)
+### SearchQuery / SearchResult
 
-- **SearchQuery:** `text`, optional `folderId`, optional `extension`, optional `parseStatus`, optional `sort` (`relevance` | `recent`).
-- **SearchResult:** document fields needed for list + snippet/preview pointers.
+- Query: text + optional folder / extension / parse status + sort.
+- Result: document fields + relevance/recent ordering from FTS/list layer.
 
 ## 5. Data ownership rules
 
-- **IndexedFolder** is the source of truth for registered roots.
-- **IndexedDocument** is the source of truth for per-file index state under a folder.
-- **FTS rows** are derived from `fileName` + `extractedText` and must be kept consistent on insert/update/delete.
-- The storage layer enforces integrity; **policy** (what gets indexed) lives in application services.
+- **Folders** define allowed filesystem scope.
+- **Documents** + **FTS** stay consistent on upsert/delete; tombstones for deleted files removed on successful scan via path set reconciliation (existing behavior).
 
 ## 6. External dependencies (allowed)
 
-- Tauri, React, TypeScript, Vite
-- SQLite via `tauri-plugin-sql` from the TypeScript layer (current approach)
-- SQLite FTS5 for full-text search
-- `pdfjs-dist` (or equivalent) for PDF text extraction in TypeScript
-- Vitest, Playwright for verification
+- Tauri v2, React, TypeScript, Vite
+- `tauri-plugin-sql`, SQLite FTS5
+- `pdfjs-dist`, **mammoth** (`.docx`)
+- Vitest, Playwright
 
-## 7. Chosen stack (after responsibilities)
-
-- **Shell:** Tauri v2
-- **UI:** React + TypeScript + Vite
-- **Persistence:** SQLite + FTS5
-- **Tests:** Vitest + Playwright (web/e2e shims as needed)
-
-## 8. Folder and file structure (target)
+## 7. Folder / file layout (target)
 
 ```text
-stackdrop/
-  src/
-    app/
-    features/
-      folders/        # register, list, remove, rescan UI + services
-      documents/      # list, detail UI + services
-      search/         # search bar + filters
-    domain/
-      documents/      # types, parse orchestration helpers
-      ingestion/      # parsers (.txt, .md, .pdf)
-      search/         # query building / normalization
-    data/
-      db/
-      repositories/
-      search/
-    tests/
-  src-tauri/
-    src/
-      commands/     # dialog, discover, safe read
-      path_utils.rs
+src/features/folders/services/   # roots, scan orchestration, Tauri adapters
+src/features/documents/
+src/domain/ingestion/
+src/data/db/                     # schema.sql, migrate.ts
+src-tauri/src/commands/
 ```
 
-Legacy v0 feature folders (`notes/`, `links/`, `tags/`, `collections/`) are **removed** from the active codebase for v1 unless retained strictly behind a **migration** module described in the Plan.
+## 8. Boundary rules
 
-## 9. Boundary rules
+- No remote backend without PRD + Architecture update.
+- No SQL or `invoke` scattered in UI; use services and thin adapters.
 
-- No remote backend without Architecture + PRD update.
-- No business rules in UI components beyond presentation.
-- No SQL in UI.
-- **No silent parse failures** and no treating unsupported files as indexed content.
+## 9. Health / diagnostics
 
-## 10. Known assumptions
+- **`app_health`**: lightweight **Tauri** command (structured JSON). Optional TS helper may combine DB stats (folder count, last scan) for richer in-app diagnostics — still **no** fake HTTP health endpoint.
 
-- One local SQLite database file is sufficient for v1.
-- Manual re-scan is sufficient for freshness; there is **no** continuous watcher.
-- FTS5 is available in the linked SQLite build (verified in tests).
+## 10. Diagram (high level)
+
+```mermaid
+flowchart LR
+  UI[Index_UI]
+  Svc[TS_services]
+  Tauri[Tauri_commands]
+  DB[(SQLite_FTS)]
+  UI --> Svc
+  Svc --> Tauri
+  Svc --> DB
+```

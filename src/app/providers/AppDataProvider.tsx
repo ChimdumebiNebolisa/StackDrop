@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import { runMigrations } from "../../data/db/migrate";
 import { getAppSqlClient, type SqlClient } from "../../data/db/sqliteClient";
+import { ensureDefaultLibraryRoots } from "../../features/folders/services/ensureDefaultLibraryRoots";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -31,6 +32,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       try {
         const sql = await getAppSqlClient();
         await runMigrations(sql);
+        await ensureDefaultLibraryRoots(sql);
         if (!cancelled) {
           setClient(sql);
           setLoadState("ready");

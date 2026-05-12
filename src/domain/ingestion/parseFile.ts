@@ -1,4 +1,4 @@
-import { parseMdFromUtf8 } from "./parsers/mdParser";
+import { parseDocxFromBytes } from "./parsers/docxParser";
 import { parsePdfFromBytes } from "./parsers/pdfParser";
 import { parseTxtFromUtf8 } from "./parsers/txtParser";
 
@@ -26,10 +26,10 @@ export async function parseFileContent(extension: string, bytes: Uint8Array): Pr
     let extractedText = "";
     if (ext === ".txt") {
       extractedText = parseTxtFromUtf8(bytes);
-    } else if (ext === ".md") {
-      extractedText = parseMdFromUtf8(bytes);
     } else if (ext === ".pdf") {
       extractedText = await parsePdfFromBytes(bytes);
+    } else if (ext === ".docx") {
+      extractedText = await parseDocxFromBytes(bytes);
     } else {
       return { status: "failed", error: `Unsupported file extension: ${ext}` };
     }
