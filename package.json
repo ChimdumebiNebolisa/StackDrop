@@ -1,0 +1,44 @@
+{
+  "name": "stackdrop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:web": "vite --host 127.0.0.1 --port 1420",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-sql": "^2.4.0",
+    "pdfjs-dist": "^5.7.284",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.0",
+    "sql.js-fts5": "^1.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@tauri-apps/cli": "^2.11.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.7.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.0.1",
+    "better-sqlite3": "^12.9.0",
+    "cross-env": "^10.1.0",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.6"
+  }
+}
