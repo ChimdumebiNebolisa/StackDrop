@@ -1,60 +1,44 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS collections (
+CREATE TABLE IF NOT EXISTS indexed_folders (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS items (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL CHECK (type IN ('note', 'link', 'file')),
-  title TEXT NOT NULL,
-  source_path TEXT,
-  source_url TEXT,
-  preview_text TEXT,
-  is_indexed INTEGER NOT NULL CHECK (is_indexed IN (0, 1)),
-  parse_status TEXT NOT NULL CHECK (parse_status IN ('not_applicable', 'indexed', 'failed')),
+  root_path TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  collection_id TEXT REFERENCES collections(id) ON DELETE SET NULL
+  last_scan_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS note_contents (
-  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
-  body TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS link_metadata (
-  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
-  url TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS file_metadata (
-  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
-  file_path TEXT NOT NULL,
-  file_extension TEXT NOT NULL,
-  extracted_text TEXT
-);
-
-CREATE TABLE IF NOT EXISTS tags (
+CREATE TABLE IF NOT EXISTS indexed_documents (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
+  folder_id TEXT NOT NULL REFERENCES indexed_folders(id) ON DELETE CASCADE,
+  absolute_path TEXT NOT NULL UNIQUE,
+  relative_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'md', 'pdf')),
+  size_bytes INTEGER NOT NULL,
+  modified_at TEXT NOT NULL,
+  parse_status TEXT NOT NULL CHECK (parse_status IN ('indexed', 'failed')),
+  parse_error TEXT,
+  extracted_text TEXT,
+  updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS item_tags (
-  item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-  tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (item_id, tag_id)
-);
+CREATE INDEX IF NOT EXISTS idx_documents_folder ON indexed_documents(folder_id);
+CREATE INDEX IF NOT EXISTS idx_documents_ext ON indexed_documents(file_extension);
+CREATE INDEX IF NOT EXISTS idx_documents_parse ON indexed_documents(parse_status);
+CREATE INDEX IF NOT EXISTS idx_documents_updated ON indexed_documents(updated_at DESC);
 
-CREATE VIRTUAL TABLE IF NOT EXISTS item_search USING fts5(
-  item_id UNINDEXED,
-  title,
+CREATE VIRTUAL TABLE IF NOT EXISTS document_search USING fts5(
+  document_id UNINDEXED,
+  file_name,
   body
 );
 
-CREATE INDEX IF NOT EXISTS idx_items_type ON items(type);
-CREATE INDEX IF NOT EXISTS idx_items_updated_at ON items(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_items_collection_id ON items(collection_id);
-CREATE INDEX IF NOT EXISTS idx_item_tags_item_id ON item_tags(item_id);
-CREATE INDEX IF NOT EXISTS idx_item_tags_tag_id ON item_tags(tag_id);
+CREATE TABLE IF NOT EXISTS scan_runs (
+  id TEXT PRIMARY KEY,
+  folder_id TEXT NOT NULL REFERENCES indexed_folders(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  files_discovered INTEGER NOT NULL DEFAULT 0,
+  files_indexed INTEGER NOT NULL DEFAULT 0,
+  files_failed INTEGER NOT NULL DEFAULT 0
+);

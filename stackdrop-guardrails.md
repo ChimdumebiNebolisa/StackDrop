@@ -1,137 +1,96 @@
 # StackDrop Guardrails
 
-Version: v1.0  
+Version: v1.1 (folder indexing)  
 Status: Active  
 Date: 2026-05-12
 
 ## 1. Purpose
 
-These guardrails define what is forbidden during implementation and what evidence is required before any success claim can be made.
+Enforceable rules for implementing StackDrop v1. A rule is valid only if it can be **checked** (code review, test, or command output).
 
-A guardrail is valid only if it can be checked.
+## 2. Scope control
 
-## 2. Scope control rules
+- No feature ships unless it is a **must-have** in the current `stackdrop-prd.md` or explicitly promoted there first.
+- If implementation discovers a missing requirement, **stop** and update the PRD before coding the behavior.
+- Only **must-have** PRD items belong in the active initial plan in `stackdrop-plan.md`.
+- Should-have / nice-to-have are forbidden until all must-haves are verified.
 
-- No feature may be added unless it already exists in the current PRD.
-- If implementation reveals a missing requirement, stop and update the PRD before coding that behavior.
-- Only PRD must-have items may enter the initial Plan.
-- Should-have and nice-to-have items are forbidden until all must-have items are verified.
+## 3. Boundary control
 
-## 3. Boundary control rules
-
-- No module ownership change is allowed unless the Architecture is updated first.
-- UI code must not write directly to the database.
-- UI code must not contain business rules for capture, organization, removal, or search policy.
-- Application services must not be bypassed for core item workflows.
-- OS-specific code must stay inside the Tauri boundary.
-- No remote backend, cloud service, or auth flow may be introduced.
+- No ownership change (UI scanning disk, UI writing DB, parsing inside Tauri unrelated to IO) without an **Architecture** update first.
+- **UI** must not recursively scan the filesystem or read arbitrary paths.
+- **UI** must not write directly to persistence (no `SqlClient` / repositories from screens/hooks except the app composition root pattern documented in Architecture).
+- **OS path policy** (canonicalize, directory vs file, root containment) lives in the **Tauri** layer or a dedicated infra module invoked only from services—not in presentational components.
+- No remote backend, cloud SDK, auth, sync, or AI imports in product code paths.
 
 ## 4. Implementation rules
 
 - No unrelated refactors.
-- No placeholder logic in any core path.
-- No duplicate business logic across UI, domain, or data layers.
-- No silent failures.
-- Every failure path must return a visible, explicit error state, logged detail, or both.
-- Validation, parsing decisions, routing decisions, and policy checks must use deterministic logic.
-- AI must not be introduced anywhere in v1.
-- Core paths must handle success, failure, and loading or processing states where applicable.
+- **No placeholder logic** in indexing, scan, persistence, or search paths (no fake FTS data, no “TODO” returns on success paths).
+- **No silent parse failures**: failures must set `parse_status` / `parse_error` and must surface to the UI when that document is shown or listed.
+- **No silent skips** where user expectation is “this path was considered”: unsupported extensions must not appear as `indexed`; optional scan summaries should report skipped counts deterministically.
+- **Never delete or mutate user files on disk** from StackDrop v1 code paths.
+- Deterministic validation before optional heuristics (e.g. normalize query → FTS string; validate path under root before read).
+- Core flows expose **loading**, **success**, and **failure** states in the UI where applicable.
 
 ## 5. Verification rules
 
-- Never claim a behavior works without a verification artifact.
-- A step is not done until its stated verification passes.
-- If verification fails, the step remains active or blocked.
-- If verification is partial, the report must state exactly what was verified and what was not.
-- If a change regresses a previously verified behavior, fix it or explicitly accept the regression before moving on.
+- Never claim a behavior works without a **verification artifact** (unit test, integration test, e2e, typecheck, lint, logs, or documented manual checklist item).
+- A plan step is not done until its verification passes.
+- If verification is partial, state exactly what was and was not verified.
 
-## 6. Required verification artifacts
+## 6. Folder indexing: required checks
 
-Acceptable verification artifacts are:
-- unit test result
-- integration test result
-- manual UI check result
-- lint result
-- typecheck result
-- sample input and output result
-- screenshot
-- log or CLI output
+### Folder selection safety
 
-Claims without one of the artifacts above are unverified.
+- Canonicalize selected folder; reject non-directories; reject unreadable roots with explicit errors.
 
-## 7. Minimum verification required for core flows
+### Recursive scan correctness
 
-### Capture flows
-#### Create note
-Required evidence:
-- one unit or integration test for persistence of created note
-- one manual UI check showing note creation and list visibility
+- Integration or unit tests with a **fixture directory tree** proving nested discovery for `.txt`/`.md`/`.pdf`.
+- Unsupported extensions present in fixtures must **not** become `indexed` searchable rows.
 
-#### Save link
-Required evidence:
-- one unit or integration test for saved link record
-- one manual UI check showing link creation and detail visibility
+### Path normalization / containment
 
-#### Import file
-Required evidence:
-- one integration test or sample import result for each supported file type path touched in the step
-- one manual UI check showing imported file visibility
-- one explicit parse failure check for unsupported or failed extraction path if that behavior was changed
+- Any `read_file_bytes_for_root(path, root)`-style API must reject paths outside the canonical root (tests include traversal attempts).
 
-### Search flows
-Required evidence:
-- one test covering note search match
-- one test covering parsed file search match
-- one manual UI check showing type filter behavior
-- one manual UI check showing tag filter behavior
+### Parse status
 
-### Organization flows
-Required evidence:
-- one test covering title update
-- one test covering tag add or remove
-- one test covering collection assign or unassign
-- one manual UI check showing the updated state in the interface
+- Tests for: indexed success, failed parse on supported type, deterministic error strings or codes stored.
 
-### Removal flows
-Required evidence:
-- one integration test showing app index removal
-- one check proving the original file still exists on disk after index removal when the changed step touches file removal logic
+### Index freshness
 
-## 8. Reporting format rules
+- Document behavior in Plan: manual rescan replaces/updates rows for files still present; documents for deleted files are removed on rescan (explicit rule—must match implementation and tests).
 
-Every non-trivial implementation step must report:
-- goal
-- facts
-- assumptions
-- plan
-- files changed
-- verification performed
-- result status: done, partial, or blocked
-- remaining uncertainty
+### Unsupported files
 
-A success report without verification is invalid.
+- Not indexed as searchable content; never inserted into FTS as if parsed.
 
-## 9. Forbidden shortcuts
+### Remove folder
 
-- No marking a parser failure as success.
-- No swallowing database errors and returning empty success states.
-- No fake search results or hardcoded sample data in the core flow.
-- No skipping loading or failure states in the UI for implemented core flows.
-- No direct mutation of persistent records from presentation components.
+- Deleting a folder registration **does not** call host file delete APIs; DB cascade removes documents only.
 
-## 10. Change control rules
+## 7. Search / SQL safety
 
-- If the task requires behavior not present in the PRD, stop and request a PRD update.
-- If the task requires changing module ownership or boundaries, stop and request an Architecture update.
-- If the task depends on an unresolved blocker or assumption, surface it before coding.
-- Do not mark a step done unless its required verification artifact exists.
-- When verification is partial, state the exact gap.
+- FTS queries must use **bound parameters** for user text after deterministic normalization (e.g. quoted term splitting); no string concatenation of raw user input into SQL beyond safe, internal `ORDER BY` switches.
 
-## 11. Definition of done enforcement
+## 8. Security integration (vibe-security relevant subset)
 
-The build is done only when:
-- all PRD must-have items are complete
-- core flows have verification artifacts
-- active blockers are resolved or explicitly accepted
-- no unresolved guardrail violations remain
-- the delivered system still matches the current PRD and Architecture
+For each change touching **Tauri capabilities**, **path handling**, or **SQL/FTS**:
+
+- Review capability grants—minimum necessary permissions.
+- Review path traversal / canonicalization.
+- Review SQL injection and MATCH injection footguns.
+- Review secrets—none expected; `.gitignore` for env files; no `VITE_*` secrets pattern.
+
+Critical/High issues on these surfaces must be resolved before claiming the related plan step done.
+
+## 9. Reporting format (non-trivial steps)
+
+Each implementation step reports: goal, facts, assumptions, files changed, verification commands + results, status (`done` / `partial` / `blocked`), remaining uncertainty.
+
+## 10. Definition of done (v1)
+
+- All PRD must-haves implemented and evidenced.
+- No unresolved guardrail violations on the checklist above.
+- No out-of-scope capabilities introduced without PRD change.

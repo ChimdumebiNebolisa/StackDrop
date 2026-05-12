@@ -1,326 +1,208 @@
 # StackDrop Architecture
 
-Version: v1.0  
-Status: Locked for initial build  
+Version: v1.1 (folder indexing)  
+Status: Locked for v1 build  
 Date: 2026-05-12
 
 ## 1. Architecture goal
 
-Define clear boundaries for a local-first desktop app that captures, stores, indexes, organizes, and retrieves personal resources without accounts or remote services.
-
-This document constrains where code lives, which part owns which responsibility, and how parts are allowed to interact.
+Define clear boundaries for a **local-first**, **single-user** desktop app that **indexes documents under user-selected folders**, **persists index state locally**, and **searches** by name and content—without accounts, remote services, or implicit full-disk indexing.
 
 ## 2. Major system parts
 
-### 2.1 Desktop shell
+### 2.1 Desktop shell (Tauri)
+
 **Ownership**
-- Owns native window lifecycle.
-- Owns native file dialog access.
-- Owns the bridge between the TypeScript app and OS-level capabilities.
+
+- Native window lifecycle.
+- **Folder** and optional **file** pickers (dialog).
+- OS path canonicalization and **safety checks** for paths returned to the TypeScript layer.
+- **Recursive filesystem discovery** for supported extensions under a **validated** folder root (Rust), returning structured file metadata (path, size, modified time)—not business parsing rules.
 
 **Does not own**
-- business rules
-- search ranking rules
-- item organization logic
 
-### 2.2 UI application
+- PDF/text parsing policy beyond reading bytes safely.
+- SQLite schema or FTS population rules.
+- Search ranking policy beyond what SQLite FTS provides.
+
+### 2.2 UI application (React + TypeScript)
+
 **Ownership**
-- Owns screens, routes, user interactions, and local presentation state.
-- Owns loading, empty, success, and error states.
-- Calls application services through explicit interfaces.
+
+- Screens, routes, presentation state, loading/empty/error UI.
+- Calls **application services** through explicit functions/hooks.
 
 **Does not own**
-- direct database writes
-- parsing rules
-- search index mutation rules
 
-### 2.3 Application services
+- Direct recursive directory scanning (no `fs` walk in components).
+- Direct SQLite writes (no repository calls from `screens/` / `hooks/` except the documented composition root if any).
+
+### 2.3 Application services (TypeScript)
+
 **Ownership**
-- Own capture workflows.
-- Own item update workflows.
-- Own removal workflows.
-- Own search orchestration.
-- Own validation of application use cases before persistence.
+
+- Use cases: **register folder**, **remove folder**, **run manual scan**, **list documents**, **get document detail**, **search**.
+- Validation of inputs that are not OS-level (e.g. empty query behavior, filter enums).
+- Orchestration: invoke shell discovery → read bytes via shell or approved IO → call parser → persist via repositories → update FTS.
 
 **Does not own**
-- UI rendering
-- raw storage details
-- OS dialogs
 
-### 2.4 Parsing and ingestion
+- Raw SQL string building scattered in UI.
+- OS-specific path canonicalization (delegates to shell).
+
+### 2.4 Parsing layer (TypeScript)
+
 **Ownership**
-- Converts supported source content into normalized text and metadata for storage and indexing.
-- Applies format-specific parsing rules for `.txt`, `.md`, and `.pdf`.
-- Returns explicit parse success or parse failure status.
+
+- Format-specific parsers for **`.txt`**, **`.md`**, **`.pdf`**.
+- Structured **parse result**: success with text, or failure with explicit error (no swallowed exceptions in the public API).
 
 **Does not own**
-- search queries
-- UI messages
-- collection or tag assignment rules beyond what is passed in
 
-### 2.5 Persistence and search store
+- Filesystem traversal.
+- Persistence.
+
+### 2.5 Persistence and search store (SQLite + FTS5)
+
 **Ownership**
-- Owns local data persistence.
-- Owns item records, tags, collections, and indexed text.
-- Owns search query execution.
-- Owns transactional updates for item metadata and indexed text.
+
+- `indexed_folders`, `indexed_documents`, optional `scan_runs` (or equivalent), and FTS virtual table for document search.
+- CRUD for folders and documents and transactional updates around scan batches.
+- Parameterized search queries (FTS `MATCH` + filters).
 
 **Does not own**
-- UI state
-- OS integration
-- parsing of raw files
+
+- UI state.
+- Dialogs.
+- Parsing bytes from disk.
 
 ## 3. Interfaces between parts
 
-### UI -> application services
-Allowed operations:
-- createNote(input)
-- saveLink(input)
-- importFile(input)
-- updateItemMetadata(input)
-- assignCollection(input)
-- removeCollectionAssignment(input)
-- removeItem(input)
-- searchItems(query)
-- listItems(filters)
-- getItemDetail(id)
-- listCollections()
-- listTags()
+### UI → application services
 
-Rule:
-- The UI must never bypass application services to write directly to storage.
+Allowed (illustrative):
 
-### Application services -> parsing and ingestion
-Allowed operations:
-- parseFile(path, fileType)
-- normalizeNote(noteInput)
-- normalizeLink(linkInput)
+- `listIndexedFolders()`
+- `addIndexedFolder()` → triggers dialog + register path
+- `removeIndexedFolder(folderId)`
+- `rescanFolder(folderId)`
+- `listDocuments(filters)`
+- `getDocumentDetail(documentId)`
+- `searchDocuments(query, filters)`
 
-Rule:
-- Parsing returns structured success or structured failure.
-- Parse failures must be explicit and must not be swallowed.
+**Rule:** UI never writes SQLite directly.
 
-### Application services -> persistence and search store
-Allowed operations:
-- insertItem(record)
-- updateItem(record)
-- deleteItem(id)
-- fetchItem(id)
-- fetchItems(filters)
-- searchIndex(query)
-- upsertTags(itemId, tags)
-- setCollection(itemId, collectionId)
-- clearCollection(itemId)
+### Application services → desktop shell
 
-Rule:
-- Business rules stay in application services.
-- Storage layer enforces data integrity, not feature policy.
+Allowed:
 
-### Desktop shell -> UI/application services
-Allowed operations:
-- open file picker
-- resolve safe local file path access
-- return file bytes or path for ingestion
+- `open_folder_dialog() -> Option<String>` (canonical folder path)
+- `discover_supported_files(root_path) -> Vec<DiscoveredFile>`
+- `read_file_bytes_for_root(path, root_path) -> Vec<u8>` (must validate `path` is under `root_path` after canonicalization)
 
-Rule:
-- Native shell code must stay small and focused on OS boundary work.
+**Rule:** The shell rejects paths that fail canonicalization or root containment checks.
+
+### Application services → parsing
+
+- `parseDocument(bytes, extension) -> ParseResult`
+
+### Application services → persistence
+
+- Repository methods for folders, documents, FTS rows, scan metadata.
+
+**Rule:** Parsing and indexing failures are **explicit** in stored `parse_status` / error fields and in return values to the UI.
 
 ## 4. Core entities
 
-### Item
-Represents one stored resource.
+### IndexedFolder
 
-Fields:
-- id
-- type: `note | link | file`
-- title
-- sourcePath nullable
-- sourceUrl nullable
-- previewText nullable
-- isIndexed boolean
-- parseStatus: `not_applicable | indexed | failed`
-- createdAt
-- updatedAt
+- `id` (stable string UUID)
+- `rootPath` (canonical absolute path string)
+- `createdAt`
+- `lastScanAt` (nullable until first successful scan completes)
 
-### NoteContent
-Fields:
-- itemId
-- body
+### IndexedDocument
 
-### LinkMetadata
-Fields:
-- itemId
-- url
+- `id`
+- `folderId` (FK → IndexedFolder)
+- `absolutePath` (unique)
+- `relativePath` (relative to folder root)
+- `fileName`
+- `fileExtension` (`txt` | `md` | `pdf`)
+- `sizeBytes`
+- `modifiedAt` (ISO string from discovery)
+- `parseStatus` (`indexed` | `failed` | `unsupported` if stored)
+- `parseError` (nullable)
+- `extractedText` (nullable; bounded preview acceptable if documented in Plan)
+- `updatedAt`
 
-### FileMetadata
-Fields:
-- itemId
-- filePath
-- fileExtension
-- extractedText nullable
+### ScanRun (optional but recommended)
 
-### Tag
-Fields:
-- id
-- name
+- `id`, `folderId`, `startedAt`, `finishedAt`, counters (`filesDiscovered`, `indexed`, `failed`, `skippedUnsupported`)
 
-### ItemTag
-Fields:
-- itemId
-- tagId
+### SearchQuery / SearchResult (logical shapes)
 
-### Collection
-Fields:
-- id
-- name
+- **SearchQuery:** `text`, optional `folderId`, optional `extension`, optional `parseStatus`, optional `sort` (`relevance` | `recent`).
+- **SearchResult:** document fields needed for list + snippet/preview pointers.
 
 ## 5. Data ownership rules
 
-- `Item` is the source of truth for shared item metadata.
-- `NoteContent`, `LinkMetadata`, and `FileMetadata` own type-specific content only.
-- Searchable text is derived data and must be regenerated from the source-specific content path.
-- Tag and collection assignment rules are owned by application services.
-- The storage layer must not duplicate business rules that already exist in application services.
+- **IndexedFolder** is the source of truth for registered roots.
+- **IndexedDocument** is the source of truth for per-file index state under a folder.
+- **FTS rows** are derived from `fileName` + `extractedText` and must be kept consistent on insert/update/delete.
+- The storage layer enforces integrity; **policy** (what gets indexed) lives in application services.
 
-## 6. External dependencies
+## 6. External dependencies (allowed)
 
-Only dependencies materially required for v1 are allowed.
-
-### Desktop and UI
-- Tauri
-- TypeScript
-- React
-- Vite
-
-### Storage
-- SQLite
+- Tauri, React, TypeScript, Vite
+- SQLite via `tauri-plugin-sql` from the TypeScript layer (current approach)
 - SQLite FTS5 for full-text search
+- `pdfjs-dist` (or equivalent) for PDF text extraction in TypeScript
+- Vitest, Playwright for verification
 
-### Parsing
-- Native text handling for `.txt` and `.md`
-- PDF text extraction library in the TypeScript app layer
+## 7. Chosen stack (after responsibilities)
 
-### Validation and testing
-- Vitest for unit tests
-- Playwright for UI verification where needed
+- **Shell:** Tauri v2
+- **UI:** React + TypeScript + Vite
+- **Persistence:** SQLite + FTS5
+- **Tests:** Vitest + Playwright (web/e2e shims as needed)
 
-## 7. Chosen stack after responsibilities are clear
-
-### Chosen stack
-- Desktop shell: Tauri
-- UI: React + TypeScript
-- Application logic: TypeScript
-- Local database: SQLite
-- Full-text search: SQLite FTS5
-- Build tool: Vite
-- Tests: Vitest and Playwright
-
-### Why this stack was chosen
-- It keeps the product desktop-first without adding accounts or server infrastructure.
-- It keeps the implementation mostly in TypeScript.
-- It uses a local database with built-in full-text search, which is simpler than adding a separate search engine.
-- It minimizes moving parts for a single-user local-first app.
-
-## 8. Rejected alternatives
-
-### Tauri + Rust-heavy business logic
-Rejected because it adds cross-language complexity too early for a v1 that does not need it.
-
-### Electron + TypeScript
-Rejected because the simpler packaging and lighter footprint of Tauri better fit a local-first single-user desktop app.
-
-### Dedicated search engine instead of SQLite FTS5
-Rejected because it adds unnecessary operational and code complexity for a local desktop v1.
-
-### Cloud backend
-Rejected because it conflicts with the PRD constraint of local-first with no accounts or remote dependency.
-
-## 9. Folder and file structure
+## 8. Folder and file structure (target)
 
 ```text
 stackdrop/
   src/
     app/
-      routes/
-      layout/
-      providers/
     features/
-      items/
-        components/
-        screens/
-        hooks/
-        services/
-      search/
-        components/
-        hooks/
-        services/
-      notes/
-        components/
-        services/
-      links/
-        components/
-        services/
-      files/
-        components/
-        services/
-      tags/
-        components/
-        services/
-      collections/
-        components/
-        services/
+      folders/        # register, list, remove, rescan UI + services
+      documents/      # list, detail UI + services
+      search/         # search bar + filters
     domain/
-      items/
-      search/
-      tags/
-      collections/
-      ingestion/
+      documents/      # types, parse orchestration helpers
+      ingestion/      # parsers (.txt, .md, .pdf)
+      search/         # query building / normalization
     data/
       db/
       repositories/
-      mappers/
       search/
-    lib/
-      validation/
-      time/
-      errors/
     tests/
-      unit/
-      integration/
-      e2e/
   src-tauri/
     src/
-      commands/
-      main.rs
-    tauri.conf.json
-  docs/
-    PRD.md
-    ARCHITECTURE.md
-    GUARDRAILS.md
-    PLAN.md
+      commands/     # dialog, discover, safe read
+      path_utils.rs
 ```
 
-## 10. File-level ownership notes
+Legacy v0 feature folders (`notes/`, `links/`, `tags/`, `collections/`) are **removed** from the active codebase for v1 unless retained strictly behind a **migration** module described in the Plan.
 
-- `src/app/` owns routing, shell composition, and app wiring only.
-- `src/features/` owns feature-specific UI and feature application service calls.
-- `src/domain/` owns business rules and use-case logic.
-- `src/data/` owns persistence, queries, FTS access, and mapping.
-- `src/lib/` owns shared utilities with no business policy.
-- `src-tauri/` owns OS boundary code only.
+## 9. Boundary rules
 
-## 11. Boundary rules
+- No remote backend without Architecture + PRD update.
+- No business rules in UI components beyond presentation.
+- No SQL in UI.
+- **No silent parse failures** and no treating unsupported files as indexed content.
 
-- Do not add a backend service unless the Architecture is updated first.
-- Do not move business rules into UI components.
-- Do not place direct SQL inside UI code.
-- Do not let Tauri shell code become an alternate application service layer.
-- Do not add new cross-cutting layers unless the Architecture is updated first.
+## 10. Known assumptions
 
-## 12. Known architecture assumptions
-
-- One local SQLite database is sufficient for v1.
-- Collection membership is one item to zero-or-one collection in v1.
-- Tags are many-to-many.
-- Full-text search over notes and successfully parsed files is sufficient for v1.
-- Links are searchable by stored metadata and user-entered title, not by fetched webpage body.
+- One local SQLite database file is sufficient for v1.
+- Manual re-scan is sufficient for freshness; there is **no** continuous watcher.
+- FTS5 is available in the linked SQLite build (verified in tests).

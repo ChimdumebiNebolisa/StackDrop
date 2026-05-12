@@ -319,3 +319,120 @@ button {
   padding: 8px 14px;
   border-radius: 10px;
 }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.error {
+  color: #b42318;
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.field span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #59657a;
+}
+
+.field input,
+.field select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d8deea;
+  font: inherit;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.folder-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.folder-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2fb;
+}
+
+.folder-path {
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.folder-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.doc-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.doc-link {
+  color: #172033;
+  text-decoration: none;
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2fb;
+}
+
+.doc-link:hover {
+  text-decoration: underline;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px 16px;
+  margin: 16px 0;
+}
+
+.meta-grid dt {
+  font-weight: 600;
+  color: #59657a;
+}
+
+.meta-grid dd {
+  margin: 0;
+}
+
+.preview {
+  white-space: pre-wrap;
+  max-height: 360px;
+  overflow: auto;
+  background: #f6f7fb;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e6eaf2;
+}

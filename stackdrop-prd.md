@@ -1,206 +1,145 @@
 # StackDrop PRD
 
-Version: v1.0  
-Status: Locked for initial build  
+Version: v1.1 (folder indexing)  
+Status: Locked for v1 build  
 Date: 2026-05-12
 
 ## 1. Product definition
 
 ### What the app is
-StackDrop is a local-first desktop app for a single user to capture, organize, browse, and search personal resources from one place.
 
-A resource is one of:
-- a local file
-- a saved link
-- a plain text note
+StackDrop v1 is a **local-first desktop document indexer and search app** for a **single user**. The user **explicitly selects one or more folders** on their machine; StackDrop **recursively discovers** supported documents under those roots, **extracts searchable text** where parsing succeeds, and **stores an index locally** so the user can **search by file name and content** and **browse/filter** results.
 
-The app helps the user stop losing useful material across folders, tabs, and scattered notes.
+Indexed scope is **only user-selected folders**. StackDrop does **not** index the whole disk or arbitrary paths outside registered folders.
 
 ### What the app is not
-StackDrop is not:
-- an AI assistant
-- a chatbot
-- a cloud sync product
-- a collaboration product
-- a browser extension first
-- a task manager
-- a calendar
-- a social product
-- a login or account product
-- a file deletion or file management tool
+
+StackDrop v1 is **not**:
+
+- a note-taking-first app or general-purpose notes product
+- a link saver or bookmark manager
+- a manual “capture everything” resource organizer (no first-class note/link/file import as the primary workflow)
+- an AI assistant, chatbot, or semantic search product
+- a cloud drive, sync product, or collaboration product
+- a browser extension
+- an “index my whole computer automatically” product
+- a login, account, or auth product
+- a tool that deletes or renames user files on disk
+
+**Notes and links** are **out of scope for v1** except where explicitly required for **one-time migration of legacy data** from StackDrop v0 (manual-import app). Unless a separate migration deliverable is approved, v1 does **not** ship note/link authoring or link storage as core product pillars.
 
 ### Primary actor
-A single desktop user who saves too many files, links, and notes and wants one place to find them later.
+
+A single desktop user who wants **fast local search** across **documents in specific project or archive folders** they choose.
 
 ### Secondary actor
-None in v1.
+
+None.
 
 ### Main job to be done
-When I save useful stuff across files, links, and notes, help me capture it and find it again quickly without digging through folders or tabs.
+
+When I point StackDrop at the folders that hold my documents, **find files quickly** by **name or content** without manually importing each file.
 
 ## 2. Scope and priority
 
-### Must-have
-These are the only capabilities allowed into the initial build plan.
+### Must-have (v1)
 
-#### Capture
-- Add a local file to the app index.
-- Add a link by pasting a URL.
-- Create a plain text note inside the app.
+#### Folder indexing
 
-#### Stored metadata
-Each item must store:
-- stable internal id
-- item type
-- title
-- original source path for files or URL for links
-- created/imported timestamp
-- updated timestamp
-- zero or more tags
-- zero or one collection
+- User can **add** one or more folders to StackDrop (folder picker).
+- User can **remove** a registered folder from StackDrop **without deleting** any files on disk (removes only app index state for that root and its documents).
+- App **recursively scans** each registered folder for supported files.
+- Supported file types for v1: **`.txt`**, **`.md`**, **`.pdf`** (case-insensitive extension matching; stored normalized as lowercase).
+- App **extracts searchable text** for supported files **when parsing succeeds**.
+- App **indexes** at minimum:
+  - file name
+  - absolute file path (for display and integrity)
+  - path relative to the registered folder root (for stable grouping)
+  - file type / extension
+  - file size and modified time from the filesystem when discovered
+  - extracted text content when available
+  - explicit **parse status** and non-empty error detail when parse fails
+- **Unsupported** files (other extensions) are **not** indexed as searchable documents. Discovery may **count** skipped non-supported files for transparency; they must **not** appear as fully indexed searchable documents.
 
 #### Search and browse
-- Full-text search across indexed content for supported item types.
-- Filter results by item type.
-- Filter results by tag.
-- Sort results by relevance or most recent.
-- Browse all items.
-- Browse a single item detail view.
-- Browse items inside a collection.
-- Browse items by tag.
 
-#### Content view
-- Show full note content.
-- Show stored URL and metadata for links.
-- Show extracted text preview for supported text-based files.
-
-#### Organization
-- Edit item title.
-- Add and remove tags.
-- Assign an item to a collection.
-- Remove an item from a collection.
-
-#### Removal
-- Remove an item from the app index without deleting the original file from disk.
+- **Search** by **file name** and **indexed content** (full-text).
+- **Browse/filter** by:
+  - indexed folder (root)
+  - file type (extension)
+  - parse status (`indexed` | `failed`; `unsupported` only if explicitly surfaced as a row per indexing rules above)
+- **Manual re-scan** of a selected registered folder on user action (no background watcher in v1 unless this PRD is amended).
+- **Document detail** view: path, metadata (size, modified time, extension, folder), parse status/error, and **extracted text preview** (or clear empty state when none).
 
 #### Local-first behavior
-- The core flow must work without any account.
-- The core flow must work without any remote server.
-- All app data must be stored locally on the user device.
 
-### Should-have
-These may be considered after all must-have items are verified.
-- Duplicate title warning during capture.
-- Empty-state guidance for first-time use.
-- Keyboard shortcut for creating a note.
-- Basic import error history visible in the UI.
+- Core flows work **without** any account.
+- Core flows work **without** any remote server or cloud backend.
+- All index data is stored **locally** on the device.
+
+### Should-have (post must-have)
+
+- Empty-state guidance for first-time “add a folder”.
+- Duplicate-path warning when adding a folder that is already registered or nested in an existing root (exact UX TBD in implementation; behavior must be explicit, not silent).
 
 ### Nice-to-have
-These are explicitly lower priority than all must-have and should-have items.
-- Drag-and-drop file import.
-- Pin or favorite items.
-- Recently viewed items section.
-- Batch tagging.
 
-## 3. Supported content in v1
+- Export index summary (counts only).
+- Keyboard shortcut to focus search.
 
-### Supported item types
-- Note
-- Link
-- File
+## 3. Out of scope for v1 (forbidden without PRD update)
 
-### Supported file formats in v1
-- `.txt`
-- `.md`
-- `.pdf`
-
-### Explicit v1 rules for supported content
-- Notes are fully editable in the app.
-- Links are stored as URLs plus app-managed metadata.
-- Files are indexed by extracted text when extraction succeeds.
-- If a supported file cannot be parsed, the item may still be stored, but it must be marked as not indexed and must not appear in full-text matches.
-
-## 4. Out of scope for v1
-
-The following are forbidden in v1 unless the PRD is updated first:
 - AI features of any kind
-- semantic search
-- recommendations
-- OCR
-- screenshot text extraction
-- sync across devices
-- accounts, login, or auth
-- sharing or collaboration
-- reminders
-- task extraction
-- browser extension
-- folder auto-watch
-- mobile app
-- cloud backup
-- nested collections
-- multiple workspaces
-- file editing for imported files
-- deletion of the original source file from disk
+- Semantic / vector search
+- OCR and scanned-PDF text unless added by PRD
+- **Background directory watcher** (continuous auto re-index)
+- Full-disk or “all user profile” implicit indexing
+- Sync across devices
+- Accounts, login, or auth
+- Sharing or collaboration
+- Browser extension
+- Mobile app
+- Deleting, moving, or editing user files on disk from within StackDrop
 
-## 5. Acceptance criteria
+## 4. Acceptance criteria (v1)
 
-The build meets the PRD only if all must-have behaviors below are true.
+The build meets this PRD only if all must-haves below are verifiable.
 
-### Capture acceptance
-- The user can create a note, save it, and see it in the item list.
-- The user can paste a URL, save it as a link item, and see it in the item list.
-- The user can choose a supported local file, import it, and see it in the item list.
+### Folder indexing
 
-### Search acceptance
-- A query matching note text returns the note.
-- A query matching extracted file text returns the file when parsing succeeded.
-- A query filtered by tag returns only items with that tag.
-- A query filtered by type returns only items of that type.
-- Relevance sort and recent sort both produce visibly different result ordering for an appropriate sample set.
+- User can register a folder and see it listed as an indexed root.
+- Recursive scan finds nested **`.txt`**, **`.md`**, and **`.pdf`** files under that root.
+- After scan, those files appear as indexed documents with correct folder association.
+- Parse failure for a supported file yields **explicit** `failed` status (and detail), **no crash**, and **no false “indexed”** claim in UI.
+- Removing a folder from StackDrop removes its documents from the app index **only**; files remain on disk.
 
-### Browse acceptance
-- The user can open an item detail view from the list.
-- The user can open a collection view and see only items in that collection.
-- The user can open a tag view and see only items with that tag.
+### Search and browse
 
-### Organization acceptance
-- The user can rename an item title and see the change reflected in list and detail views.
-- The user can add and remove tags from an item.
-- The user can assign and unassign a collection.
+- Search matches **file name**.
+- Search matches **extracted body text** for successfully parsed files.
+- Filters correctly restrict by **folder**, **file type**, and **parse status** as implemented.
+- Manual re-scan updates index state according to design (e.g. new/changed files reflected; removed files dropped from index).
 
-### Removal acceptance
-- The user can remove an item from the app index.
-- Removing an item from the app index does not delete the original file from disk.
+### Detail
 
-### Local-first acceptance
-- The app can launch and perform core capture, browse, and search flows with no login.
-- The app can launch and perform core capture, browse, and search flows without contacting a remote backend.
+- Detail view shows path, metadata, parse status, and preview consistent with stored data.
 
-## 6. Constraints
+### Local-first
 
-- Desktop app only.
-- Single-user only.
-- Local-first only.
-- No AI in v1.
-- No auth in v1.
-- No sync in v1.
-- The UI and core app flow must remain understandable without onboarding.
-- Only must-have items may enter the initial implementation plan.
-- If a requested feature is not in this PRD, it must not be built.
+- App runs core flows with **no login** and **no remote backend**.
 
-## 7. Blocked unknowns that affect implementation
+## 5. Constraints
 
-None currently block initial implementation.
+- Desktop (Tauri) only, single user.
+- Local-only data at rest for the index.
+- No AI, no auth, no sync, no cloud services in v1.
+- Only must-have items belong in the initial implementation plan derived from this PRD.
 
-These decisions are considered resolved for v1:
-- Link metadata fetching from the internet is out of scope.
-- Nested collections are out of scope.
-- Failed file parsing does not block storage of the item, but it does block indexing of that item.
-
-## 8. Success conditions for v1
+## 6. Success conditions for v1
 
 StackDrop v1 is done only when:
-- every must-have item in this PRD is implemented
-- every must-have flow has at least one verification artifact
-- no out-of-scope feature was added
-- the delivered app still matches this PRD
+
+- every **must-have** in §2 is implemented,
+- each must-have flow has a **verification artifact** (test, scripted check, or documented manual check),
+- no **out-of-scope** capability ships without a PRD update,
+- the shipped app still matches this PRD.
