@@ -2,44 +2,71 @@
 
 ## What this is
 
-StackDrop is a **Windows / macOS / Linux desktop app** (Tauri + React) that **indexes supported documents under folders you choose** and lets you **search by file name and extracted text**. There is **no cloud account**, **no remote API**, and **no AI** — everything stays on your machine in a local SQLite database with FTS5 full-text search.
+StackDrop is a **Windows / macOS / Linux desktop app** (Tauri + React) that **indexes supported documents under folders you choose** and lets you **search by file name and extracted text**. There is **no cloud account**, **no remote API**, and **no AI**; everything stays on your machine in a local SQLite database with FTS5 full-text search.
 
 ## Problem it solves
 
 Personal documents spread across **Documents**, **Desktop**, **Downloads**, and other folders are hard to search consistently with Explorer/Finder alone. StackDrop gives **one “Index library” action** to refresh the index from your registered locations, then **fast unified search** with filters and a **detail view** (path, metadata, parse status, text preview).
 
-## Demo
+## Screenshots
 
-There is **no hosted live demo** (desktop-only). For a quick visual pass, see the automated proof screenshots:
+There is **no hosted live demo** (desktop-only). Below are proof screenshots from the automated UI checks.
 
-| Screenshot | What it shows |
-|------------|----------------|
-| [`docs/proof-screenshots/01-library-after-index.png`](docs/proof-screenshots/01-library-after-index.png) | Library after **Index library** |
-| [`docs/proof-screenshots/02-search-by-title.png`](docs/proof-screenshots/02-search-by-title.png) | Search by title/filename |
-| [`docs/proof-screenshots/03-search-by-content.png`](docs/proof-screenshots/03-search-by-content.png) | Search hit on body text |
-| [`docs/proof-screenshots/04-document-detail.png`](docs/proof-screenshots/04-document-detail.png) | Detail (path, preview, parse status) |
+### Library after Index library
 
-Manual steps: [`docs/DEMO_CHECKLIST.md`](docs/DEMO_CHECKLIST.md). Optional recording guide: [`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md).
+![Library view after indexing](docs/proof-screenshots/01-library-after-index.png)
 
-## Windows installer (`.exe`)
+### Search by title or filename
 
-Installers are **not committed** to this repo — build them locally (or in CI) with `npm run tauri -- build`. On **Windows x64**, the outputs you care about are:
+![Search by title or filename](docs/proof-screenshots/02-search-by-title.png)
 
-| What | Path (from repo root) |
-|------|------------------------|
-| **NSIS setup `.exe` (recommended)** | `src-tauri/target/release/bundle/nsis/StackDrop_0.1.0_x64-setup.exe` |
-| WiX `.msi` | `src-tauri/target/release/bundle/msi/StackDrop_0.1.0_x64_en-US.msi` |
-| Raw app `.exe` (unsigned) | `src-tauri/target/release/stackdrop.exe` |
+### Search hit on body text
 
-The `0.1.0` segment matches `version` in `src-tauri/tauri.conf.json` — it changes when you bump the release. See [Packaging](#packaging-windows-installer--artifacts) for the build command and signing note.
+![Search by extracted content](docs/proof-screenshots/03-search-by-content.png)
+
+### Document detail (path, preview, parse status)
+
+![Document detail panel](docs/proof-screenshots/04-document-detail.png)
+
+## Install
+
+### Windows (one-click from GitHub Releases)
+
+Installers are built with Tauri and uploaded as release assets. After you publish [release v0.1.0](https://github.com/ChimdumebiNebolisa/StackDrop/releases/tag/v0.1.0) with the bundle outputs, use these direct downloads (same filenames as `npm run tauri -- build` on Windows x64):
+
+| Installer | Download |
+|-----------|----------|
+| **NSIS setup (recommended)** | [StackDrop_0.1.0_x64-setup.exe](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v0.1.0/StackDrop_0.1.0_x64-setup.exe) |
+| **WiX MSI** | [StackDrop_0.1.0_x64_en-US.msi](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v0.1.0/StackDrop_0.1.0_x64_en-US.msi) |
+
+[All releases](https://github.com/ChimdumebiNebolisa/StackDrop/releases)
+
+**Signing:** Release builds are **not code-signed** by default. SmartScreen may warn until you sign with a trusted certificate or reputation builds.
+
+### Build from source (Windows, macOS, Linux)
+
+```bash
+npm install
+npm run tauri -- build
+```
+
+`tauri build` runs `beforeBuildCommand` (the web build). On **Windows x64**, artifacts land under `src-tauri/target/release/bundle/` (version comes from `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, currently **0.1.0**):
+
+| Artifact | Relative path |
+|----------|----------------|
+| NSIS installer | `src-tauri/target/release/bundle/nsis/StackDrop_0.1.0_x64-setup.exe` |
+| WiX MSI | `src-tauri/target/release/bundle/msi/StackDrop_0.1.0_x64_en-US.msi` |
+| Unsigned app binary | `src-tauri/target/release/stackdrop.exe` |
+
+The `target/` tree is not committed; build locally or in CI. Bump `version` in both Tauri config and `Cargo.toml` when you cut a new release.
 
 ## Features
 
-- **Index library** — scan all registered roots for supported files; parse and upsert into SQLite + FTS5.
-- **Default safe roots** — seeds Documents, Desktop, Downloads when present; **add folders** via the OS picker; paths stay **under registered roots** (see [`docs/SECURITY.md`](docs/SECURITY.md)).
-- **Search** — full-text search with filters (location, type, parse status).
-- **Document detail** — absolute path, metadata, parse status, extracted text preview.
-- **Explicit parse failures** — failed parses are visible in the UI and are not silently treated as indexed body text.
+- **Index library:** scan all registered roots for supported files; parse and upsert into SQLite + FTS5.
+- **Default safe roots:** seeds Documents, Desktop, Downloads when present; **add folders** via the OS picker; paths stay **under registered roots** (see [`docs/SECURITY.md`](docs/SECURITY.md)).
+- **Search:** full-text search with filters (location, type, parse status).
+- **Document detail:** absolute path, metadata, parse status, extracted text preview.
+- **Explicit parse failures:** failed parses are visible in the UI and are not silently treated as indexed body text.
 
 ## Supported file types
 
@@ -98,13 +125,13 @@ npm install
 
 ## Run
 
-**Full app (recommended)** — native file access and real folder defaults:
+**Full app (recommended):** native file access and real folder defaults:
 
 ```bash
 npm run dev
 ```
 
-**Web UI only** — useful for layout work; **no** Tauri shell (folder defaults and disk reads need Tauri or E2E shims):
+**Web UI only:** useful for layout work; **no** Tauri shell (folder defaults and disk reads need Tauri or E2E shims):
 
 ```bash
 npm run dev:web
@@ -134,26 +161,6 @@ npm run build
 
 Produces static files in `dist/` for the Tauri `frontendDist`.
 
-## Packaging (Windows installer / artifacts)
-
-Build installers with the Tauri CLI (after a release web build — `tauri build` runs `beforeBuildCommand`):
-
-```bash
-npm run tauri -- build
-```
-
-On **Windows** (current `version` in `src-tauri/tauri.conf.json` / `Cargo.toml`), a successful `tauri build` produces:
-
-| Artifact | Relative path |
-|----------|----------------|
-| NSIS installer (preferred download) | `src-tauri/target/release/bundle/nsis/StackDrop_0.1.0_x64-setup.exe` |
-| WiX MSI | `src-tauri/target/release/bundle/msi/StackDrop_0.1.0_x64_en-US.msi` |
-| Unsigned app binary | `src-tauri/target/release/stackdrop.exe` |
-
-Filenames include the app version — bump `version` in config when you release a new build. The `target/` tree is not committed to git (build locally or in CI).
-
-**Signing:** Release builds are **not code-signed** by default. SmartScreen may warn until you sign with a trusted certificate or reputation builds.
-
 ## How it works (short)
 
 1. **Migrations** run on startup; **`indexed_folders`** holds roots. If empty, the app seeds **default document roots** via Tauri when available.
@@ -171,13 +178,13 @@ Filenames include the app version — bump `version` in config when you release 
 
 ## Known limitations
 
-- **No OCR** — scanned PDFs without a text layer may fail or yield empty text.
-- **No file watcher** — run **Index library** (or re-scan a location) to pick up changes.
-- **No legacy `.doc`** — only `.txt`, `.pdf`, `.docx`.
+- **No OCR:** scanned PDFs without a text layer may fail or yield empty text.
+- **No file watcher:** run **Index library** (or re-scan a location) to pick up changes.
+- **No legacy `.doc`:** only `.txt`, `.pdf`, `.docx`.
 - **Default roots** depend on standard OS profile folders existing.
 
 More detail: [`docs/PROOF.md`](docs/PROOF.md) (Known limitations).
 
 ## License
 
-[MIT](LICENSE) — see [`LICENSE`](LICENSE) for the full text.
+[MIT](LICENSE). See [`LICENSE`](LICENSE) for the full text.
