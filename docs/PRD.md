@@ -1,5 +1,7 @@
 # StackDrop PRD
 
+> **Superseded** — This file describes an **earlier product vision** (notes, saved links, `.md` as a core type). The **shipped app** is a **local document indexer** for `.txt`, `.pdf`, and `.docx` only. Use the canonical PRD at [`stackdrop-prd.md`](../stackdrop-prd.md) and [`PROOF.md`](PROOF.md) for the current product.
+
 Version: v1.0  
 Status: Locked for initial build  
 Date: 2026-05-12

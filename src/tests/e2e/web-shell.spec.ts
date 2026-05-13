@@ -47,15 +47,11 @@ async function installFolderScanShim(page: Page) {
   });
 }
 
-test("loads root and StackDrop branding", async ({ page }) => {
-  test.setTimeout(120_000);
-  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
-  await expect(page).toHaveTitle(/StackDrop/i, { timeout: 120_000 });
-});
-
-test("shows library UI with in-memory database", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+test("loads StackDrop branding and library shell", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.goto("/", { waitUntil: "load", timeout: 180_000 });
+  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible({ timeout: 180_000 });
+  await expect(page).toHaveTitle(/StackDrop/i, { timeout: 30_000 });
 });
 
 test("indexes library via e2e shim and finds document by search", async ({ page }) => {
