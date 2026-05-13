@@ -31,6 +31,8 @@ declare global {
       defaultDocumentRoots?: () => string[];
       discoverSupportedFiles?: (rootPath: string) => DiscoveredFileDto[];
       readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null;
+      ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
+      extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
     };
   }
 }
@@ -85,4 +87,18 @@ export async function invokeReadFileBytesUnderRoot(rootPath: string, absolutePat
   }
   const bytes = await invoke<number[]>("read_file_bytes_under_root", { rootPath, absolutePath });
   return new Uint8Array(bytes);
+}
+
+export async function invokeOcrPdfTextUnderRoot(rootPath: string, absolutePath: string): Promise<string> {
+  if (import.meta.env.VITE_E2E_SQLITE === "1" && typeof window !== "undefined") {
+    return window.__STACKDROP_E2E__?.ocrPdfTextUnderRoot?.(rootPath, absolutePath) ?? "";
+  }
+  return invoke<string>("ocr_pdf_under_root", { rootPath, absolutePath });
+}
+
+export async function invokeExtractDocTextUnderRoot(rootPath: string, absolutePath: string): Promise<string> {
+  if (import.meta.env.VITE_E2E_SQLITE === "1" && typeof window !== "undefined") {
+    return window.__STACKDROP_E2E__?.extractDocTextUnderRoot?.(rootPath, absolutePath) ?? "";
+  }
+  return invoke<string>("extract_doc_text_under_root", { rootPath, absolutePath });
 }

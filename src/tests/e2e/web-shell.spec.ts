@@ -17,6 +17,8 @@ declare global {
         modifiedAtMs: number;
       }>;
       readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null;
+      ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
+      extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
     };
   }
 }

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAppData } from "../../../app/providers/AppDataProvider";
@@ -10,6 +10,7 @@ import { removeIndexedFolder } from "../../folders/services/removeIndexedFolder"
 import { runAllFolderScans, type LibraryScanSummary } from "../../folders/services/runAllFolderScans";
 import { runFolderScan } from "../../folders/services/runFolderScan";
 import { invokeAppHealth, type AppHealthDto } from "../../folders/services/tauriFolderFs";
+import { watchIndexedFolders } from "../../folders/services/watchIndexedFolders";
 import { queryDocuments } from "../services/queryDocuments";
 
 type ScanPhase = "idle" | "scanning" | "completed" | "completed_with_errors";
@@ -26,6 +27,12 @@ function summarizePhase(summary: LibraryScanSummary | null, phase: ScanPhase): s
   return `${base} Completed.`;
 }
 
+function formatParseStatusLabel(status: ParseStatus): string {
+  if (status === "parsed_text") return "parsed text";
+  if (status === "parsed_ocr") return "parsed OCR";
+  return "parse failed";
+}
+
 export function DocumentLibraryScreen() {
   const { client, loadState, bumpDataVersion, dataVersion } = useAppData();
   const [folders, setFolders] = useState<IndexedFolderRecord[]>([]);
@@ -39,6 +46,9 @@ export function DocumentLibraryScreen() {
   const [scanPhase, setScanPhase] = useState<ScanPhase>("idle");
   const [lastSummary, setLastSummary] = useState<LibraryScanSummary | null>(null);
   const [shellHealth, setShellHealth] = useState<AppHealthDto | null>(null);
+  const [watchState, setWatchState] = useState<"idle" | "watching" | "error">("idle");
+  const autoScanInFlight = useRef(new Set<string>());
+  const scanPhaseRef = useRef<ScanPhase>("idle");
 
   const filters = useMemo(
     () => ({
@@ -65,6 +75,51 @@ export function DocumentLibraryScreen() {
       .then(setShellHealth)
       .catch(() => setShellHealth(null));
   }, []);
+
+  useEffect(() => {
+    scanPhaseRef.current = scanPhase;
+  }, [scanPhase]);
+
+  useEffect(() => {
+    if (!client || loadState !== "ready") return;
+    let cancelled = false;
+    let stopWatcher: (() => Promise<void>) | null = null;
+    setWatchState("idle");
+
+    void watchIndexedFolders(folders, {
+      onFolderDirty: (folder) => {
+        if (scanPhaseRef.current === "scanning") return;
+        if (autoScanInFlight.current.has(folder.id)) return;
+        autoScanInFlight.current.add(folder.id);
+        void runFolderScan(folder.id, client)
+          .then(() => bumpDataVersion())
+          .catch((watchErr) => {
+            setError(watchErr instanceof Error ? `Auto-index failed: ${watchErr.message}` : "Auto-index failed.");
+            setWatchState("error");
+          })
+          .finally(() => {
+            autoScanInFlight.current.delete(folder.id);
+          });
+      },
+    })
+      .then((stop) => {
+        if (cancelled) {
+          void stop();
+          return;
+        }
+        stopWatcher = stop;
+        setWatchState(folders.length > 0 ? "watching" : "idle");
+      })
+      .catch(() => setWatchState("error"));
+
+    return () => {
+      cancelled = true;
+      autoScanInFlight.current.clear();
+      if (stopWatcher) {
+        void stopWatcher();
+      }
+    };
+  }, [client, loadState, folders, bumpDataVersion]);
 
   const onIndexLibrary = async () => {
     if (!client || loadState !== "ready") return;
@@ -151,6 +206,8 @@ export function DocumentLibraryScreen() {
         <p className="muted">
           Indexed locations: {folders.length}
           {shellHealth ? ` · Shell ${shellHealth.ok ? "OK" : "issue"} (v${shellHealth.packageVersion})` : null}
+          {watchState === "watching" && folders.length > 0 ? " · Watching indexed folders" : null}
+          {watchState === "error" ? " · File watcher unavailable" : null}
         </p>
       </header>
 
@@ -170,16 +227,6 @@ export function DocumentLibraryScreen() {
             Add folder…
           </button>
         </div>
-      </section>
-
-      <section className="card" aria-labelledby="limitations-heading">
-        <h2 id="limitations-heading">Known limitations</h2>
-        <ul className="limitations-list">
-          <li>Scanned PDFs without embedded text may not be searchable.</li>
-          <li>StackDrop does not watch files continuously yet. Run Index library or re-scan a location to refresh.</li>
-          <li>Supported formats: .txt, .pdf, .docx (legacy .doc is not supported).</li>
-          <li>Default roots are added only when standard system folders are available.</li>
-        </ul>
       </section>
 
       <section className="card" aria-labelledby="folders-heading">
@@ -248,6 +295,7 @@ export function DocumentLibraryScreen() {
               <option value="txt">.txt</option>
               <option value="pdf">.pdf</option>
               <option value="docx">.docx</option>
+              <option value="doc">.doc</option>
             </select>
           </label>
           <label className="field">
@@ -258,8 +306,9 @@ export function DocumentLibraryScreen() {
               aria-label="Filter by parse status"
             >
               <option value="">All</option>
-              <option value="indexed">Indexed</option>
-              <option value="failed">Failed</option>
+              <option value="parsed_text">Parsed (text)</option>
+              <option value="parsed_ocr">Parsed (OCR)</option>
+              <option value="parse_failed">Parse failed</option>
             </select>
           </label>
         </div>
@@ -274,7 +323,7 @@ export function DocumentLibraryScreen() {
                   <span className="doc-name">{d.fileName}</span>
                   <span className="muted small">
                     {" "}
-                    · {d.fileExtension} · {d.parseStatus}
+                    · {d.fileExtension} · {formatParseStatusLabel(d.parseStatus)}
                   </span>
                 </Link>
               </li>

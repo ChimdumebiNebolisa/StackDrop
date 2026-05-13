@@ -56,7 +56,7 @@ describe("migrateIndexedDocumentsSchema", () => {
       fileExtension: "docx",
       sizeBytes: 10,
       modifiedAt: now,
-      parseStatus: "indexed",
+      parseStatus: "parsed_text",
       parseError: null,
       extractedText: "hello",
       updatedAt: now,
@@ -78,20 +78,11 @@ describe("migrateIndexedDocumentsSchema", () => {
       rootPath: "/virtual/root",
       createdAt: now,
     });
-    await new DocumentRepository(client).upsertDocument({
-      id: crypto.randomUUID(),
-      folderId,
-      absolutePath: "/virtual/root/n.txt",
-      relativePath: "n.txt",
-      fileName: "n.txt",
-      fileExtension: "txt",
-      sizeBytes: 1,
-      modifiedAt: now,
-      parseStatus: "indexed",
-      parseError: null,
-      extractedText: null,
-      updatedAt: now,
-    });
+    await client.execute(
+      `INSERT INTO indexed_documents (id, folder_id, absolute_path, relative_path, file_name, file_extension, size_bytes, modified_at, parse_status, parse_error, extracted_text, updated_at)
+       VALUES (?, ?, ?, 'n.txt', 'n.txt', 'txt', 1, ?, 'indexed', NULL, NULL, ?)`,
+      [crypto.randomUUID(), folderId, "/virtual/root/n.txt", now, now],
+    );
     await client.execute(
       `INSERT INTO indexed_documents (id, folder_id, absolute_path, relative_path, file_name, file_extension, size_bytes, modified_at, parse_status, parse_error, extracted_text, updated_at)
        VALUES (?, ?, ?, 'x.md', 'x.md', 'md', 1, ?, 'indexed', NULL, 'x', ?)`,
@@ -104,5 +95,9 @@ describe("migrateIndexedDocumentsSchema", () => {
       "SELECT COUNT(*) as c FROM indexed_documents WHERE file_extension = 'md'",
     );
     expect(mdCount?.c).toBe(0);
+    const legacyStatusCount = await client.get<{ c: number }>(
+      "SELECT COUNT(*) as c FROM indexed_documents WHERE parse_status IN ('indexed', 'failed')",
+    );
+    expect(legacyStatusCount?.c).toBe(0);
   });
 });

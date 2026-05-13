@@ -446,18 +446,6 @@ button.primary:disabled {
   text-decoration: underline;
 }
 
-.limitations-list {
-  margin: 10px 0 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.4rem;
-  color: #39445c;
-}
-
-.limitations-list li {
-  line-height: 1.45;
-}
-
 .meta-grid {
   display: grid;
   grid-template-columns: 160px 1fr;

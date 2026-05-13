@@ -1,6 +1,6 @@
-export type FileExtension = "txt" | "pdf" | "docx";
+export type FileExtension = "txt" | "pdf" | "docx" | "doc";
 
-export type ParseStatus = "indexed" | "failed";
+export type ParseStatus = "parsed_text" | "parsed_ocr" | "parse_failed";
 
 export interface IndexedFolderRecord {
   id: string;

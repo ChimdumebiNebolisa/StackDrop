@@ -9,6 +9,8 @@
     "sql:default",
     "sql:allow-execute",
     "fs:allow-read-file",
-    "fs:allow-read-text-file"
+    "fs:allow-read-text-file",
+    "fs:allow-watch",
+    "fs:allow-unwatch"
   ]
 }

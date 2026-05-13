@@ -56,7 +56,7 @@ describe("folder scan orchestration", () => {
     const hits = await queryDocuments(client, "unique-stackdrop-scan-token", {});
     expect(hits).toHaveLength(1);
     expect(hits[0].fileName).toBe("a.txt");
-    expect(hits[0].parseStatus).toBe("indexed");
+    expect(hits[0].parseStatus).toBe("parsed_text");
   });
 
   it("indexes docx and finds fixture token via content search", async () => {
@@ -84,7 +84,7 @@ describe("folder scan orchestration", () => {
     const hits = await queryDocuments(client, "stackdrop-docx-fixture-token", {});
     expect(hits).toHaveLength(1);
     expect(hits[0].fileName).toBe("w.docx");
-    expect(hits[0].parseStatus).toBe("indexed");
+    expect(hits[0].parseStatus).toBe("parsed_text");
   });
 
   it("removes documents missing after rescan", async () => {

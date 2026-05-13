@@ -14,6 +14,8 @@ pub fn run() {
             commands::file_commands::open_folder_dialog,
             commands::file_commands::discover_supported_files,
             commands::file_commands::read_file_bytes_under_root,
+            commands::file_commands::ocr_pdf_under_root,
+            commands::file_commands::extract_doc_text_under_root,
             commands::file_commands::get_default_document_roots,
             commands::file_commands::app_health,
         ])

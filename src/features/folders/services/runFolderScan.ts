@@ -1,4 +1,3 @@
-import { parseFileContent } from "../../../domain/ingestion/parseFile";
 import type { FileExtension } from "../../../domain/documents/types";
 import type { SqlClient } from "../../../data/db/sqliteClient";
 import { DocumentRepository } from "../../../data/repositories/documentRepository";
@@ -7,6 +6,7 @@ import { DocumentSearchRepository } from "../../../data/search/documentSearchRep
 import { withTransaction } from "../../../lib/db/withTransaction";
 import { logScanSummary } from "../../../lib/log";
 import { invokeDiscoverSupportedFiles, invokeReadFileBytesUnderRoot } from "./tauriFolderFs";
+import { parseDiscoveredFile } from "./parseDiscoveredFile";
 
 export interface FolderScanSummary {
   discovered: number;
@@ -59,7 +59,7 @@ export async function runFolderScan(folderId: string, client: SqlClient): Promis
           fileExtension: file.extension as FileExtension,
           sizeBytes: Number(file.sizeBytes),
           modifiedAt,
-          parseStatus: "failed",
+          parseStatus: "parse_failed",
           parseError: error instanceof Error ? error.message : String(error),
           extractedText: null,
           updatedAt: now,
@@ -68,9 +68,14 @@ export async function runFolderScan(folderId: string, client: SqlClient): Promis
         continue;
       }
 
-      const parsed = await parseFileContent(`.${file.extension}`, bytes);
-      const parseStatus = parsed.status === "indexed" ? "indexed" : "failed";
-      if (parseStatus === "indexed") indexed += 1;
+      const parsed = await parseDiscoveredFile({
+        rootPath: folder.rootPath,
+        absolutePath: file.absolutePath,
+        extension: file.extension,
+        bytes,
+      });
+      const parseStatus = parsed.parseStatus;
+      if (parseStatus === "parsed_text" || parseStatus === "parsed_ocr") indexed += 1;
       else failed += 1;
 
       await docRepo.upsertDocument({
@@ -83,12 +88,12 @@ export async function runFolderScan(folderId: string, client: SqlClient): Promis
         sizeBytes: Number(file.sizeBytes),
         modifiedAt,
         parseStatus,
-        parseError: parseStatus === "failed" ? (parsed.error ?? "Parse failed") : null,
-        extractedText: parsed.extractedText ?? null,
+        parseError: parsed.parseError,
+        extractedText: parsed.extractedText,
         updatedAt: now,
       });
 
-      if (parseStatus === "indexed") {
+      if (parseStatus === "parsed_text" || parseStatus === "parsed_ocr") {
         await searchRepo.indexDocument(id, file.fileName, parsed.extractedText ?? "");
       } else {
         await searchRepo.removeDocument(id);

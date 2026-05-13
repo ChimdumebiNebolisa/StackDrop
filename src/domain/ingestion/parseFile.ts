@@ -3,7 +3,7 @@ import { parsePdfFromBytes } from "./parsers/pdfParser";
 import { parseTxtFromUtf8 } from "./parsers/txtParser";
 
 export interface ParseFileResult {
-  status: "indexed" | "failed";
+  status: "parsed_text" | "parse_failed";
   extractedText?: string;
   error?: string;
 }
@@ -20,7 +20,7 @@ function normalizeExtension(extension: string): string {
 export async function parseFileContent(extension: string, bytes: Uint8Array): Promise<ParseFileResult> {
   const ext = normalizeExtension(extension);
   if (!ext) {
-    return { status: "failed", error: "Missing file extension." };
+    return { status: "parse_failed", error: "Missing file extension." };
   }
   try {
     let extractedText = "";
@@ -31,12 +31,12 @@ export async function parseFileContent(extension: string, bytes: Uint8Array): Pr
     } else if (ext === ".docx") {
       extractedText = await parseDocxFromBytes(bytes);
     } else {
-      return { status: "failed", error: `Unsupported file extension: ${ext}` };
+      return { status: "parse_failed", error: `Unsupported file extension: ${ext}` };
     }
-    return { status: "indexed", extractedText };
+    return { status: "parsed_text", extractedText };
   } catch (error) {
     return {
-      status: "failed",
+      status: "parse_failed",
       error: error instanceof Error ? error.message : "Unknown parse failure",
     };
   }

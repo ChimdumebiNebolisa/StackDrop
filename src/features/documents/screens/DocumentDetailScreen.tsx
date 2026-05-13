@@ -5,6 +5,12 @@ import { useAppData } from "../../../app/providers/AppDataProvider";
 import type { IndexedDocumentRecord } from "../../../domain/documents/types";
 import { getDocumentDetail } from "../services/getDocumentDetail";
 
+function formatParseStatus(status: IndexedDocumentRecord["parseStatus"]): string {
+  if (status === "parsed_text") return "parsed text";
+  if (status === "parsed_ocr") return "parsed OCR";
+  return "parse failed";
+}
+
 export function DocumentDetailScreen() {
   const { id } = useParams();
   const { client, loadState } = useAppData();
@@ -48,7 +54,7 @@ export function DocumentDetailScreen() {
         <dt>Modified</dt>
         <dd>{new Date(doc.modifiedAt).toLocaleString()}</dd>
         <dt>Parse status</dt>
-        <dd>{doc.parseStatus}</dd>
+        <dd>{formatParseStatus(doc.parseStatus)}</dd>
         {doc.parseError ? (
           <>
             <dt>Parse error</dt>

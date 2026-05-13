@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS indexed_documents (
   absolute_path TEXT NOT NULL UNIQUE,
   relative_path TEXT NOT NULL,
   file_name TEXT NOT NULL,
-  file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'pdf', 'docx')),
+  file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'pdf', 'docx', 'doc')),
   size_bytes INTEGER NOT NULL,
   modified_at TEXT NOT NULL,
-  parse_status TEXT NOT NULL CHECK (parse_status IN ('indexed', 'failed')),
+  parse_status TEXT NOT NULL CHECK (parse_status IN ('parsed_text', 'parsed_ocr', 'parse_failed')),
   parse_error TEXT,
   extracted_text TEXT,
   updated_at TEXT NOT NULL

@@ -32,7 +32,7 @@ describe("v1 repositories", () => {
       fileExtension: "txt",
       sizeBytes: 5,
       modifiedAt: now,
-      parseStatus: "indexed",
+      parseStatus: "parsed_text",
       parseError: null,
       extractedText: "hello world",
       updatedAt: now,

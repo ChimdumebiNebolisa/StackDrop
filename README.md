@@ -13,9 +13,10 @@ Files are often spread across Documents, Desktop, Downloads, and custom folders.
 ## Key features
 
 - **Index library:** one action to scan all registered locations.
+- **Auto-index while open:** indexed folders are watched and refreshed after local file changes.
 - **Add/re-scan/remove locations:** manage what is indexed.
 - **Full-text search + filters:** location, file type, parse status.
-- **Document details:** absolute path, metadata, parse result, extracted preview.
+- **Document details:** absolute path, metadata, parse result (`parsed_text`, `parsed_ocr`, `parse_failed`), extracted preview.
 - **Local-only architecture:** no cloud account, no remote API, no auth backend.
 
 ## Supported file types
@@ -23,8 +24,9 @@ Files are often spread across Documents, Desktop, Downloads, and custom folders.
 | Extension | Support |
 |---|---|
 | `.txt` | Full support |
-| `.pdf` | Text-layer extraction (`pdf.js`) |
+| `.pdf` | Text-layer extraction (`pdf.js`) + local OCR fallback |
 | `.docx` | Text extraction (`mammoth`) |
+| `.doc` | Local legacy extraction (`antiword`) |
 
 ## Screenshots / proof
 
@@ -50,6 +52,12 @@ npm install
 ```
 
 No `.env` file is required for normal desktop use.
+
+For cloud/CI machines that need native dependencies, run:
+
+```bash
+npm run setup:cloud-agent
+```
 
 ## Run
 
@@ -100,18 +108,11 @@ When you build on Windows x64, output files are generated under `src-tauri/targe
 
 Current project version: `2.0.0`.
 
-## Known limitations
+## Behavior notes
 
-- Scanned PDFs without a text layer may fail to index or return empty text (no OCR yet).
-- StackDrop does not watch files continuously; run **Index library** or **Re-scan** to refresh.
-- Legacy `.doc` is not supported. Supported formats are `.txt`, `.pdf`, `.docx`.
-- Default roots are only added when standard OS profile folders exist.
-
-## Next improvements (planned direction)
-
-- OCR support for scanned PDFs.
-- Optional background file watching.
-- Better parse diagnostics and recovery hints per document.
+- OCR fallback is local/offline and can be slower than normal PDF text extraction.
+- Auto-indexing runs while the app is open (no background daemon).
+- StackDrop suggests available standard folders (Documents/Desktop/Downloads) when present; users can always add custom folders manually.
 
 ## Notes
 
