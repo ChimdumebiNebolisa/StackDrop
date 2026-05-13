@@ -32,12 +32,12 @@ There is **no hosted live demo** (desktop-only). Below are proof screenshots fro
 
 ### Windows (one-click from GitHub Releases)
 
-Installers are built with Tauri and uploaded as release assets. After you publish [release v0.1.0](https://github.com/ChimdumebiNebolisa/StackDrop/releases/tag/v0.1.0) with the bundle outputs, use these direct downloads (same filenames as `npm run tauri -- build` on Windows x64):
+Installers are built with Tauri and uploaded as release assets. After you publish [release v2.0.0](https://github.com/ChimdumebiNebolisa/StackDrop/releases/tag/v2.0.0) with the bundle outputs, use these direct downloads (same filenames as `npm run tauri -- build` on Windows x64):
 
 | Installer | Download |
 |-----------|----------|
-| **NSIS setup (recommended)** | [StackDrop_0.1.0_x64-setup.exe](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v0.1.0/StackDrop_0.1.0_x64-setup.exe) |
-| **WiX MSI** | [StackDrop_0.1.0_x64_en-US.msi](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v0.1.0/StackDrop_0.1.0_x64_en-US.msi) |
+| **NSIS setup (recommended)** | [StackDrop_2.0.0_x64-setup.exe](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v2.0.0/StackDrop_2.0.0_x64-setup.exe) |
+| **WiX MSI** | [StackDrop_2.0.0_x64_en-US.msi](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v2.0.0/StackDrop_2.0.0_x64_en-US.msi) |
 
 [All releases](https://github.com/ChimdumebiNebolisa/StackDrop/releases)
 
@@ -50,12 +50,12 @@ npm install
 npm run tauri -- build
 ```
 
-`tauri build` runs `beforeBuildCommand` (the web build). On **Windows x64**, artifacts land under `src-tauri/target/release/bundle/` (version comes from `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, currently **0.1.0**):
+`tauri build` runs `beforeBuildCommand` (the web build). On **Windows x64**, artifacts land under `src-tauri/target/release/bundle/` (version comes from `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, currently **2.0.0**):
 
 | Artifact | Relative path |
 |----------|----------------|
-| NSIS installer | `src-tauri/target/release/bundle/nsis/StackDrop_0.1.0_x64-setup.exe` |
-| WiX MSI | `src-tauri/target/release/bundle/msi/StackDrop_0.1.0_x64_en-US.msi` |
+| NSIS installer | `src-tauri/target/release/bundle/nsis/StackDrop_2.0.0_x64-setup.exe` |
+| WiX MSI | `src-tauri/target/release/bundle/msi/StackDrop_2.0.0_x64_en-US.msi` |
 | Unsigned app binary | `src-tauri/target/release/stackdrop.exe` |
 
 The `target/` tree is not committed; build locally or in CI. Bump `version` in both Tauri config and `Cargo.toml` when you cut a new release.
