@@ -10,23 +10,23 @@ Personal documents spread across **Documents**, **Desktop**, **Downloads**, and 
 
 ## Screenshots
 
-There is **no hosted live demo** (desktop-only). Below are proof screenshots from the automated UI checks.
+There is **no hosted live demo** (desktop-only). These files are committed under [`docs/proof-screenshots/`](docs/proof-screenshots/) (same paths work on GitHub and locally).
 
 ### Library after Index library
 
-![Library view after indexing](docs/proof-screenshots/01-library-after-index.png)
+<img src="./docs/proof-screenshots/01-library-after-index.png" alt="StackDrop Library after Index library: indexed locations, Index library button, browse and search" width="920" />
 
 ### Search by title or filename
 
-![Search by title or filename](docs/proof-screenshots/02-search-by-title.png)
+<img src="./docs/proof-screenshots/02-search-by-title.png" alt="StackDrop search by file name: query doc, result doc.txt" width="920" />
 
 ### Search hit on body text
 
-![Search by extracted content](docs/proof-screenshots/03-search-by-content.png)
+<img src="./docs/proof-screenshots/03-search-by-content.png" alt="StackDrop full-text search: query e2e-folder-index-token, hit in doc.txt" width="920" />
 
 ### Document detail (path, preview, parse status)
 
-![Document detail panel](docs/proof-screenshots/04-document-detail.png)
+<img src="./docs/proof-screenshots/04-document-detail.png" alt="StackDrop document detail: path, metadata, parse status indexed, extracted text preview" width="920" />
 
 ## Install
 
