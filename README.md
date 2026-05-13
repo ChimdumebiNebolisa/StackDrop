@@ -1,117 +1,47 @@
 # StackDrop
 
-## What this is
+StackDrop is a desktop-first document indexing app built with Tauri + React. It scans local folders, extracts text from supported files, and gives you one searchable library with filters and detail views. Everything stays local (SQLite + FTS5).
 
-StackDrop is a **Windows / macOS / Linux desktop app** (Tauri + React) that **indexes supported documents under folders you choose** and lets you **search by file name and extracted text**. There is **no cloud account**, **no remote API**, and **no AI**; everything stays on your machine in a local SQLite database with FTS5 full-text search.
+## What problem it solves
 
-## Problem it solves
+Files are often spread across Documents, Desktop, Downloads, and custom folders. StackDrop gives you a single place to:
 
-Personal documents spread across **Documents**, **Desktop**, **Downloads**, and other folders are hard to search consistently with Explorer/Finder alone. StackDrop gives **one “Index library” action** to refresh the index from your registered locations, then **fast unified search** with filters and a **detail view** (path, metadata, parse status, text preview).
+- index supported files from selected folders
+- search by filename or extracted content
+- inspect parse status and text preview per document
 
-## Screenshots
+## Key features
 
-There is **no hosted live demo** (desktop-only). These files are committed under [`docs/proof-screenshots/`](docs/proof-screenshots/) (same paths work on GitHub and locally).
-
-### Library after Index library
-
-<img src="./docs/proof-screenshots/01-library-after-index.png" alt="StackDrop Library after Index library: indexed locations, Index library button, browse and search" width="920" />
-
-### Search by title or filename
-
-<img src="./docs/proof-screenshots/02-search-by-title.png" alt="StackDrop search by file name: query doc, result doc.txt" width="920" />
-
-### Search hit on body text
-
-<img src="./docs/proof-screenshots/03-search-by-content.png" alt="StackDrop full-text search: query e2e-folder-index-token, hit in doc.txt" width="920" />
-
-### Document detail (path, preview, parse status)
-
-<img src="./docs/proof-screenshots/04-document-detail.png" alt="StackDrop document detail: path, metadata, parse status indexed, extracted text preview" width="920" />
-
-## Install
-
-### Windows (one-click from GitHub Releases)
-
-Installers are built with Tauri and uploaded as release assets. After you publish [release v2.0.0](https://github.com/ChimdumebiNebolisa/StackDrop/releases/tag/v2.0.0) with the bundle outputs, use these direct downloads (same filenames as `npm run tauri -- build` on Windows x64):
-
-| Installer | Download |
-|-----------|----------|
-| **NSIS setup (recommended)** | [StackDrop_2.0.0_x64-setup.exe](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v2.0.0/StackDrop_2.0.0_x64-setup.exe) |
-| **WiX MSI** | [StackDrop_2.0.0_x64_en-US.msi](https://github.com/ChimdumebiNebolisa/StackDrop/releases/download/v2.0.0/StackDrop_2.0.0_x64_en-US.msi) |
-
-[All releases](https://github.com/ChimdumebiNebolisa/StackDrop/releases)
-
-**Signing:** Release builds are **not code-signed** by default. SmartScreen may warn until you sign with a trusted certificate or reputation builds.
-
-### Build from source (Windows, macOS, Linux)
-
-```bash
-npm install
-npm run tauri -- build
-```
-
-`tauri build` runs `beforeBuildCommand` (the web build). On **Windows x64**, artifacts land under `src-tauri/target/release/bundle/` (version comes from `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, currently **2.0.0**):
-
-| Artifact | Relative path |
-|----------|----------------|
-| NSIS installer | `src-tauri/target/release/bundle/nsis/StackDrop_2.0.0_x64-setup.exe` |
-| WiX MSI | `src-tauri/target/release/bundle/msi/StackDrop_2.0.0_x64_en-US.msi` |
-| Unsigned app binary | `src-tauri/target/release/stackdrop.exe` |
-
-The `target/` tree is not committed; build locally or in CI. Bump `version` in both Tauri config and `Cargo.toml` when you cut a new release.
-
-## Features
-
-- **Index library:** scan all registered roots for supported files; parse and upsert into SQLite + FTS5.
-- **Default safe roots:** seeds Documents, Desktop, Downloads when present; **add folders** via the OS picker; paths stay **under registered roots** (see [`docs/SECURITY.md`](docs/SECURITY.md)).
-- **Search:** full-text search with filters (location, type, parse status).
-- **Document detail:** absolute path, metadata, parse status, extracted text preview.
-- **Explicit parse failures:** failed parses are visible in the UI and are not silently treated as indexed body text.
+- **Index library:** one action to scan all registered locations.
+- **Add/re-scan/remove locations:** manage what is indexed.
+- **Full-text search + filters:** location, file type, parse status.
+- **Document details:** absolute path, metadata, parse result, extracted preview.
+- **Local-only architecture:** no cloud account, no remote API, no auth backend.
 
 ## Supported file types
 
-| Extension | Indexing |
-|-----------|----------|
-| `.txt` | Yes |
-| `.pdf` | Yes (text layer via pdf.js; no OCR) |
-| `.docx` | Yes (via mammoth) |
+| Extension | Support |
+|---|---|
+| `.txt` | Full support |
+| `.pdf` | Text-layer extraction (`pdf.js`) |
+| `.docx` | Text extraction (`mammoth`) |
 
-Legacy **`.doc`**, cloud sync, collaboration, and “index the whole disk” are **out of scope**.
+## Screenshots / proof
 
-## Tech stack
+Desktop-only app (no hosted web demo). Current proof screenshots:
 
-| Layer | Technology |
-|-------|------------|
-| Desktop shell | [Tauri 2](https://v2.tauri.app/) (Rust) |
-| UI | React 19, React Router, Vite |
-| Local database | SQLite (via `@tauri-apps/plugin-sql`) + FTS5 (`sql.js-fts5` in the web/e2e path) |
-| PDF / Word parsing | pdf.js, mammoth (in the frontend bundle) |
-
-There is **no** separate HTTP backend, **no** authentication service, and **no** LLM/API integration in this repo.
-
-## Documentation
-
-| Doc | Topic |
-|-----|--------|
-| [`stackdrop-prd.md`](stackdrop-prd.md) | Canonical product definition (v1.3) |
-| [`docs/API.md`](docs/API.md) | Tauri commands + TypeScript services |
-| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema, migrations, indexing behavior |
-| [`docs/ENV.md`](docs/ENV.md) | Optional env (e.g. E2E shims) |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Capabilities, path safety |
-| [`docs/PRODUCTION.md`](docs/PRODUCTION.md) | Logging, health, build notes |
-| [`docs/PROOF.md`](docs/PROOF.md) | Verification + architecture summary |
-
-Some older **v1.0 design drafts** under `docs/` (`PRD.md`, `PLAN.md`, `ARCHITECTURE.md`) are **marked superseded** at the top of each file; do not treat them as the shipped product spec.
+- [`docs/proof-screenshots/01-library-after-index.png`](docs/proof-screenshots/01-library-after-index.png)
+- [`docs/proof-screenshots/02-search-by-title.png`](docs/proof-screenshots/02-search-by-title.png)
+- [`docs/proof-screenshots/03-search-by-content.png`](docs/proof-screenshots/03-search-by-content.png)
+- [`docs/proof-screenshots/04-document-detail.png`](docs/proof-screenshots/04-document-detail.png)
 
 ## Requirements
 
-- **Node.js** 20+
-- **Rust** toolchain (stable), for Tauri dev/build
-- **OS**: Windows, macOS, or Linux (default folder labels come from the `dirs` crate)
+- Node.js 20+
+- Rust stable toolchain
+- OS: Windows, macOS, or Linux
 
 ## Setup
-
-### 1. Clone and install
 
 ```bash
 git clone https://github.com/ChimdumebiNebolisa/StackDrop.git
@@ -119,25 +49,19 @@ cd StackDrop
 npm install
 ```
 
-### 2. Environment variables
-
-**Normal desktop use does not require a `.env` file.** Optional variables used for **automated E2E** or local debugging are documented in [`docs/ENV.md`](docs/ENV.md) (e.g. `VITE_E2E_SQLITE`).
+No `.env` file is required for normal desktop use.
 
 ## Run
 
-**Full app (recommended):** native file access and real folder defaults:
-
 ```bash
+# Full desktop app (Tauri + web UI)
 npm run dev
-```
 
-**Web UI only:** useful for layout work; **no** Tauri shell (folder defaults and disk reads need Tauri or E2E shims):
-
-```bash
+# Web UI only (no native file access)
 npm run dev:web
 ```
 
-## Testing
+## Test
 
 ```bash
 npm run typecheck
@@ -145,46 +69,55 @@ npm run test
 npm run test:e2e
 ```
 
-In `src-tauri`:
+Rust tests:
 
 ```bash
+cd src-tauri
 cargo test
 ```
 
-**What this covers:** TypeScript types; Vitest unit/integration on parsing, DB, and services; Playwright smoke flows with `VITE_E2E_SQLITE=1` (see [`playwright.config.ts`](playwright.config.ts)); Rust helpers where tested. There is **no** separate REST API test suite.
+## Build
 
-## Build (web assets)
+Web assets:
 
 ```bash
 npm run build
 ```
 
-Produces static files in `dist/` for the Tauri `frontendDist`.
+Desktop bundles:
 
-## How it works (short)
+```bash
+npm run tauri -- build
+```
 
-1. **Migrations** run on startup; **`indexed_folders`** holds roots. If empty, the app seeds **default document roots** via Tauri when available.
-2. **Index library** walks each root (Rust discovery + safe reads), parses in TypeScript, upserts **`indexed_documents`**, updates the **FTS5** index, and prunes missing files.
-3. **Search** queries FTS5 and the UI shows hits; opening a row shows **detail** including parse status and preview.
+## Windows installer/exe artifacts
 
-## Repository layout (high level)
+When you build on Windows x64, output files are generated under `src-tauri/target/release/`:
 
-| Path | Role |
-|------|------|
-| `src/` | React UI, routes, features, parsers, DB client |
-| `src-tauri/` | Tauri shell, Rust commands, path containment |
-| `src/data/db/` | SQL schema + migrations |
-| `src/tests/` | Vitest + Playwright |
+- `bundle/nsis/StackDrop_<version>_x64-setup.exe` (recommended installer)
+- `bundle/msi/StackDrop_<version>_x64_en-US.msi`
+- `stackdrop.exe` (unsigned raw binary)
+
+Current project version: `2.0.0`.
 
 ## Known limitations
 
-- **No OCR:** scanned PDFs without a text layer may fail or yield empty text.
-- **No file watcher:** run **Index library** (or re-scan a location) to pick up changes.
-- **No legacy `.doc`:** only `.txt`, `.pdf`, `.docx`.
-- **Default roots** depend on standard OS profile folders existing.
+- Scanned PDFs without a text layer may fail to index or return empty text (no OCR yet).
+- StackDrop does not watch files continuously; run **Index library** or **Re-scan** to refresh.
+- Legacy `.doc` is not supported. Supported formats are `.txt`, `.pdf`, `.docx`.
+- Default roots are only added when standard OS profile folders exist.
 
-More detail: [`docs/PROOF.md`](docs/PROOF.md) (Known limitations).
+## Next improvements (planned direction)
+
+- OCR support for scanned PDFs.
+- Optional background file watching.
+- Better parse diagnostics and recovery hints per document.
+
+## Notes
+
+- This repo is a desktop app, not a cloud SaaS product.
+- There is no auth service, no server API, and no AI pipeline in scope.
 
 ## License
 
-[MIT](LICENSE). See [`LICENSE`](LICENSE) for the full text.
+MIT — see [LICENSE](LICENSE).

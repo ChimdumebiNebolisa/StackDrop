@@ -82,9 +82,30 @@ p {
 }
 
 .brand {
-  font-weight: 800;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   margin-bottom: 20px;
+}
+
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d8deea;
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.brand-tagline {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #59657a;
 }
 
 .nav-block {
@@ -423,6 +444,18 @@ button.primary:disabled {
 
 .doc-link:hover {
   text-decoration: underline;
+}
+
+.limitations-list {
+  margin: 10px 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+  color: #39445c;
+}
+
+.limitations-list li {
+  line-height: 1.45;
 }
 
 .meta-grid {

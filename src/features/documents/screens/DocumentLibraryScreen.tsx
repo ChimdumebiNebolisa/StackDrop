@@ -172,6 +172,16 @@ export function DocumentLibraryScreen() {
         </div>
       </section>
 
+      <section className="card" aria-labelledby="limitations-heading">
+        <h2 id="limitations-heading">Known limitations</h2>
+        <ul className="limitations-list">
+          <li>Scanned PDFs without embedded text may not be searchable.</li>
+          <li>StackDrop does not watch files continuously yet. Run Index library or re-scan a location to refresh.</li>
+          <li>Supported formats: .txt, .pdf, .docx (legacy .doc is not supported).</li>
+          <li>Default roots are added only when standard system folders are available.</li>
+        </ul>
+      </section>
+
       <section className="card" aria-labelledby="folders-heading">
         <h2 id="folders-heading">Indexed locations</h2>
         {folders.length === 0 ? (
