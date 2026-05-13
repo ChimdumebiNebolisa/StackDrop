@@ -21,6 +21,18 @@ There is **no hosted live demo** (desktop-only). For a quick visual pass, see th
 
 Manual steps: [`docs/DEMO_CHECKLIST.md`](docs/DEMO_CHECKLIST.md). Optional recording guide: [`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md).
 
+## Windows installer (`.exe`)
+
+Installers are **not committed** to this repo — build them locally (or in CI) with `npm run tauri -- build`. On **Windows x64**, the outputs you care about are:
+
+| What | Path (from repo root) |
+|------|------------------------|
+| **NSIS setup `.exe` (recommended)** | `src-tauri/target/release/bundle/nsis/StackDrop_0.1.0_x64-setup.exe` |
+| WiX `.msi` | `src-tauri/target/release/bundle/msi/StackDrop_0.1.0_x64_en-US.msi` |
+| Raw app `.exe` (unsigned) | `src-tauri/target/release/stackdrop.exe` |
+
+The `0.1.0` segment matches `version` in `src-tauri/tauri.conf.json` — it changes when you bump the release. See [Packaging](#packaging-windows-installer--artifacts) for the build command and signing note.
+
 ## Features
 
 - **Index library** — scan all registered roots for supported files; parse and upsert into SQLite + FTS5.
@@ -168,4 +180,4 @@ More detail: [`docs/PROOF.md`](docs/PROOF.md) (Known limitations).
 
 ## License
 
-This repository does **not** currently include a `LICENSE` file; treat usage as **all rights reserved** unless/until a license is added.
+[MIT](LICENSE) — see [`LICENSE`](LICENSE) for the full text.
