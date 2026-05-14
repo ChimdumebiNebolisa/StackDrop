@@ -33,6 +33,8 @@ function formatParseStatusLabel(status: ParseStatus): string {
   return "parse failed";
 }
 
+const BACKGROUND_INDEXING_KEY = "stackdrop.backgroundIndexing";
+
 export function DocumentLibraryScreen() {
   const { client, loadState, bumpDataVersion, dataVersion } = useAppData();
   const [folders, setFolders] = useState<IndexedFolderRecord[]>([]);
@@ -47,6 +49,12 @@ export function DocumentLibraryScreen() {
   const [lastSummary, setLastSummary] = useState<LibraryScanSummary | null>(null);
   const [shellHealth, setShellHealth] = useState<AppHealthDto | null>(null);
   const [watchState, setWatchState] = useState<"idle" | "watching" | "error">("idle");
+  const [backgroundIndexing, setBackgroundIndexing] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const raw = window.localStorage.getItem(BACKGROUND_INDEXING_KEY);
+    if (raw === null) return true;
+    return raw === "true";
+  });
   const autoScanInFlight = useRef(new Set<string>());
   const scanPhaseRef = useRef<ScanPhase>("idle");
 
@@ -81,7 +89,16 @@ export function DocumentLibraryScreen() {
   }, [scanPhase]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(BACKGROUND_INDEXING_KEY, String(backgroundIndexing));
+  }, [backgroundIndexing]);
+
+  useEffect(() => {
     if (!client || loadState !== "ready") return;
+    if (!backgroundIndexing) {
+      setWatchState("idle");
+      return;
+    }
     let cancelled = false;
     let stopWatcher: (() => Promise<void>) | null = null;
     setWatchState("idle");
@@ -119,7 +136,7 @@ export function DocumentLibraryScreen() {
         void stopWatcher();
       }
     };
-  }, [client, loadState, folders, bumpDataVersion]);
+  }, [client, loadState, folders, bumpDataVersion, backgroundIndexing]);
 
   const onIndexLibrary = async () => {
     if (!client || loadState !== "ready") return;
@@ -206,7 +223,7 @@ export function DocumentLibraryScreen() {
         <p className="muted">
           Indexed locations: {folders.length}
           {shellHealth ? ` · Shell ${shellHealth.ok ? "OK" : "issue"} (v${shellHealth.packageVersion})` : null}
-          {watchState === "watching" && folders.length > 0 ? " · Watching indexed folders" : null}
+          {backgroundIndexing && watchState === "watching" && folders.length > 0 ? " · Watching indexed folders" : null}
           {watchState === "error" ? " · File watcher unavailable" : null}
         </p>
       </header>
@@ -227,6 +244,22 @@ export function DocumentLibraryScreen() {
             Add folder…
           </button>
         </div>
+      </section>
+
+      <section className="card" aria-labelledby="settings-heading">
+        <h2 id="settings-heading">Settings</h2>
+        <label className="inline-field">
+          <input
+            type="checkbox"
+            checked={backgroundIndexing}
+            onChange={(event) => setBackgroundIndexing(event.target.checked)}
+            aria-label="Background indexing"
+          />
+          <span>Background indexing</span>
+        </label>
+        <p className="muted small">
+          Automatically watch indexed folders and update search results while StackDrop is open.
+        </p>
       </section>
 
       <section className="card" aria-labelledby="folders-heading">

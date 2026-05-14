@@ -24,9 +24,9 @@ Files are often spread across Documents, Desktop, Downloads, and custom folders.
 | Extension | Support |
 |---|---|
 | `.txt` | Full support |
-| `.pdf` | Text-layer extraction (`pdf.js`) + local OCR fallback |
+| `.pdf` | Text-layer extraction (`pdf.js`) + local OCR fallback for scanned/image-only PDFs |
 | `.docx` | Text extraction (`mammoth`) |
-| `.doc` | Local legacy extraction (`antiword`) |
+| `.doc` | Legacy extraction (packaged helper in Windows installer) |
 
 ## Screenshots / proof
 
@@ -111,7 +111,8 @@ Current project version: `2.0.0`.
 ## Behavior notes
 
 - OCR fallback is local/offline and can be slower than normal PDF text extraction.
-- Auto-indexing runs while the app is open (no background daemon).
+- The Windows installer bundles OCR/legacy-doc helper binaries (`pdftoppm`, `tesseract`, `antiword`) and language data, so end users do not need to install them separately.
+- **Background indexing** is configurable in-app and watches indexed folders while StackDrop is open (no hidden system daemon).
 - StackDrop suggests available standard folders (Documents/Desktop/Downloads) when present; users can always add custom folders manually.
 
 ## Notes
