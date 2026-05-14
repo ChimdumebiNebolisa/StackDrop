@@ -145,8 +145,96 @@ fn make_temp_subdir(prefix: &str) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-#[tauri::command]
-pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<String, String> {
+#[derive(Clone, Debug)]
+struct ToolPaths {
+    pdftoppm: Option<PathBuf>,
+    tesseract: Option<PathBuf>,
+    tesseract_data_dir: Option<PathBuf>,
+    antiword: Option<PathBuf>,
+    antiword_home: Option<PathBuf>,
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    path.exists() && path.is_file()
+}
+
+fn resolve_binary_in_dir(dir: &Path, binary_name: &str) -> Option<PathBuf> {
+    let direct = dir.join(binary_name);
+    if is_executable_file(&direct) {
+        return Some(direct);
+    }
+    if cfg!(target_os = "windows") {
+        let with_exe = dir.join(format!("{binary_name}.exe"));
+        if is_executable_file(&with_exe) {
+            return Some(with_exe);
+        }
+    }
+    None
+}
+
+fn detect_tool_root_from_runtime() -> Option<PathBuf> {
+    if let Ok(override_root) = std::env::var("STACKDROP_TOOL_ROOT") {
+        let path = PathBuf::from(override_root);
+        if path.is_dir() {
+            return Some(path);
+        }
+    }
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?.to_path_buf();
+    let mut candidates = vec![exe_dir.join("resources").join("windows-tools")];
+    let parent_resources = exe_dir.join("..").join("resources").join("windows-tools");
+    if let Ok(canon) = parent_resources.canonicalize() {
+        candidates.push(canon);
+    } else {
+        candidates.push(parent_resources);
+    }
+    for candidate in candidates {
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn resolve_tool_paths() -> ToolPaths {
+    if let Some(tool_root) = detect_tool_root_from_runtime() {
+        let poppler_bin = tool_root.join("poppler").join("bin");
+        let tesseract_dir = tool_root.join("tesseract");
+        let antiword_bin = tool_root.join("antiword").join("bin");
+        let antiword_home = tool_root.join("antiword").join("share").join("antiword");
+        let tesseract_data = tesseract_dir.join("tessdata");
+        let paths = ToolPaths {
+            pdftoppm: resolve_binary_in_dir(&poppler_bin, "pdftoppm"),
+            tesseract: resolve_binary_in_dir(&tesseract_dir, "tesseract"),
+            tesseract_data_dir: if tesseract_data.is_dir() {
+                Some(tesseract_data)
+            } else {
+                None
+            },
+            antiword: resolve_binary_in_dir(&antiword_bin, "antiword"),
+            antiword_home: if antiword_home.is_dir() {
+                Some(antiword_home)
+            } else {
+                None
+            },
+        };
+        return paths;
+    }
+
+    ToolPaths {
+        pdftoppm: None,
+        tesseract: None,
+        tesseract_data_dir: None,
+        antiword: None,
+        antiword_home: None,
+    }
+}
+
+fn ocr_pdf_with_tools(
+    root_path: &str,
+    absolute_path: &str,
+    tool_paths: &ToolPaths,
+) -> Result<String, String> {
     let root = root_path.trim();
     if root.is_empty() {
         return Err("Root path is empty.".to_string());
@@ -170,7 +258,11 @@ pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<St
     let temp_dir = make_temp_subdir("stackdrop-ocr")?;
     let output_prefix = temp_dir.join("page");
 
-    let mut pdftoppm = Command::new("pdftoppm");
+    let mut pdftoppm = if let Some(path) = &tool_paths.pdftoppm {
+        Command::new(path)
+    } else {
+        Command::new("pdftoppm")
+    };
     pdftoppm.arg("-png").arg(&canon).arg(&output_prefix);
     let pdftoppm_result = run_command_capture(pdftoppm, "PDF rasterization failed");
     if pdftoppm_result.is_err() {
@@ -196,7 +288,11 @@ pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<St
 
     let mut out = Vec::new();
     for image in images {
-        let mut tesseract = Command::new("tesseract");
+        let mut tesseract = if let Some(path) = &tool_paths.tesseract {
+            Command::new(path)
+        } else {
+            Command::new("tesseract")
+        };
         tesseract
             .arg(&image)
             .arg("stdout")
@@ -204,6 +300,9 @@ pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<St
             .arg("eng")
             .arg("--dpi")
             .arg("300");
+        if let Some(tessdata) = &tool_paths.tesseract_data_dir {
+            tesseract.env("TESSDATA_PREFIX", tessdata);
+        }
         let page_text = run_command_capture(tesseract, "OCR text extraction failed")?;
         if !page_text.trim().is_empty() {
             out.push(page_text.trim().to_string());
@@ -217,10 +316,10 @@ pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<St
     Ok(out.join("\n"))
 }
 
-#[tauri::command]
-pub fn extract_doc_text_under_root(
-    root_path: String,
-    absolute_path: String,
+fn extract_doc_text_with_tools(
+    root_path: &str,
+    absolute_path: &str,
+    tool_paths: &ToolPaths,
 ) -> Result<String, String> {
     let root = root_path.trim();
     if root.is_empty() {
@@ -242,14 +341,36 @@ pub fn extract_doc_text_under_root(
         return Err("Legacy extraction only supports .doc files.".to_string());
     }
 
-    let mut antiword = Command::new("antiword");
+    let mut antiword = if let Some(path) = &tool_paths.antiword {
+        Command::new(path)
+    } else {
+        Command::new("antiword")
+    };
     antiword.arg(&canon);
     antiword.env("LANG", "C.UTF-8");
+    if let Some(home) = &tool_paths.antiword_home {
+        antiword.env("ANTIWORDHOME", home);
+    }
     let text = run_command_capture(antiword, "Legacy .doc extraction failed")?;
     if text.trim().is_empty() {
         return Err("Legacy .doc parser returned empty text.".to_string());
     }
     Ok(text)
+}
+
+#[tauri::command]
+pub fn ocr_pdf_under_root(root_path: String, absolute_path: String) -> Result<String, String> {
+    let tool_paths = resolve_tool_paths();
+    ocr_pdf_with_tools(&root_path, &absolute_path, &tool_paths)
+}
+
+#[tauri::command]
+pub fn extract_doc_text_under_root(
+    root_path: String,
+    absolute_path: String,
+) -> Result<String, String> {
+    let tool_paths = resolve_tool_paths();
+    extract_doc_text_with_tools(&root_path, &absolute_path, &tool_paths)
 }
 
 #[derive(Serialize, Clone)]
@@ -466,5 +587,56 @@ mod discover_tests {
         )
         .unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn bundled_tool_override_works_without_path_binaries() {
+        if !has_command("pdftoppm", "-v")
+            || !has_command("tesseract", "--version")
+            || !has_command("antiword", "-h")
+        {
+            return;
+        }
+
+        let root = fixtures_dir();
+        let scanned = root.join("scanned-image-only.pdf");
+        let legacy = root.join("legacy-sample.doc");
+
+        let tool_root = std::env::temp_dir().join("stackdrop-tool-override");
+        let poppler_dir = tool_root.join("poppler").join("bin");
+        let tess_dir = tool_root.join("tesseract");
+        let antiword_dir = tool_root.join("antiword").join("bin");
+        std::fs::create_dir_all(&poppler_dir).unwrap();
+        std::fs::create_dir_all(&tess_dir).unwrap();
+        std::fs::create_dir_all(&antiword_dir).unwrap();
+
+        std::fs::copy("/usr/bin/pdftoppm", poppler_dir.join("pdftoppm")).unwrap();
+        std::fs::copy("/usr/bin/tesseract", tess_dir.join("tesseract")).unwrap();
+        std::fs::copy("/usr/bin/antiword", antiword_dir.join("antiword")).unwrap();
+
+        let tool_paths = ToolPaths {
+            pdftoppm: Some(poppler_dir.join("pdftoppm")),
+            tesseract: Some(tess_dir.join("tesseract")),
+            tesseract_data_dir: None,
+            antiword: Some(antiword_dir.join("antiword")),
+            antiword_home: None,
+        };
+        let ocr = ocr_pdf_with_tools(
+            &root.to_string_lossy(),
+            &scanned.to_string_lossy(),
+            &tool_paths,
+        )
+        .unwrap();
+        assert!(ocr.contains("STACKDROP OCR TOKEN"));
+
+        let doc = extract_doc_text_with_tools(
+            &root.to_string_lossy(),
+            &legacy.to_string_lossy(),
+            &tool_paths,
+        )
+        .unwrap();
+        assert!(doc.contains("Lorem ipsum"));
+
+        let _ = std::fs::remove_dir_all(tool_root);
     }
 }

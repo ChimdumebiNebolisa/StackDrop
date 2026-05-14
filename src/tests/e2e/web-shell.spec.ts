@@ -251,12 +251,25 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
   await page.getByRole("button", { name: "Index library" }).click();
   await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
 
+  const backgroundCheckbox = page.getByLabel("Background indexing");
+  await expect(backgroundCheckbox).toBeChecked();
+  await backgroundCheckbox.uncheck();
+  await expect(backgroundCheckbox).not.toBeChecked();
+
   await page.evaluate(() => {
     window.__STACKDROP_E2E_TEST__?.createTxt("watch-new.txt", "WATCH_CREATE_TOKEN_20260514");
     window.__STACKDROP_E2E_TEST__?.emitWatch();
     window.__STACKDROP_E2E_TEST__?.emitWatch();
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
+  await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toHaveCount(0);
+
+  await backgroundCheckbox.check();
+  await expect(backgroundCheckbox).toBeChecked();
+  await page.evaluate(() => {
+    window.__STACKDROP_E2E_TEST__?.emitWatch();
+  });
+
   await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toHaveCount(1);
 
