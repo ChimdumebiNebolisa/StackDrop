@@ -332,6 +332,18 @@ pub fn app_health() -> AppHealthDto {
 mod discover_tests {
     use super::*;
     use std::io::Write;
+    use std::path::PathBuf;
+
+    fn has_command(binary: &str, version_arg: &str) -> bool {
+        Command::new(binary).arg(version_arg).output().is_ok()
+    }
+
+    fn fixtures_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../src/tests/fixtures")
+            .canonicalize()
+            .unwrap()
+    }
 
     #[test]
     fn discovers_nested_supported_files() {
@@ -382,5 +394,77 @@ mod discover_tests {
             .join("Documents");
         push_unique_root(&mut out, &mut seen, "Documents", missing).unwrap();
         assert!(out.is_empty());
+    }
+
+    #[test]
+    fn default_roots_include_existing_directory() {
+        let dir = std::env::temp_dir().join("stackdrop_existing_default_root");
+        let _ = std::fs::create_dir_all(&dir);
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        push_unique_root(&mut out, &mut seen, "Documents", dir.clone()).unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].label, "Documents");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ocr_extracts_text_from_scanned_pdf_fixture() {
+        if !has_command("pdftoppm", "-v") || !has_command("tesseract", "--version") {
+            return;
+        }
+        let root = fixtures_dir();
+        let scanned = root.join("scanned-image-only.pdf");
+        let out = ocr_pdf_under_root(
+            root.to_string_lossy().to_string(),
+            scanned.to_string_lossy().to_string(),
+        )
+        .unwrap();
+        assert!(out.contains("STACKDROP OCR TOKEN"));
+    }
+
+    #[test]
+    fn ocr_returns_error_for_broken_pdf_fixture() {
+        if !has_command("pdftoppm", "-v") || !has_command("tesseract", "--version") {
+            return;
+        }
+        let root = fixtures_dir();
+        let broken = root.join("broken.pdf");
+        let err = ocr_pdf_under_root(
+            root.to_string_lossy().to_string(),
+            broken.to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn doc_extraction_works_for_legacy_fixture() {
+        if !has_command("antiword", "-h") {
+            return;
+        }
+        let root = fixtures_dir();
+        let doc = root.join("legacy-sample.doc");
+        let out = extract_doc_text_under_root(
+            root.to_string_lossy().to_string(),
+            doc.to_string_lossy().to_string(),
+        )
+        .unwrap();
+        assert!(out.contains("Lorem ipsum"));
+    }
+
+    #[test]
+    fn doc_extraction_fails_for_invalid_fixture() {
+        if !has_command("antiword", "-h") {
+            return;
+        }
+        let root = fixtures_dir();
+        let doc = root.join("broken.doc");
+        let err = extract_doc_text_under_root(
+            root.to_string_lossy().to_string(),
+            doc.to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+        assert!(!err.is_empty());
     }
 }

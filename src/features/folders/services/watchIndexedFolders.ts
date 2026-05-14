@@ -29,8 +29,20 @@ export async function watchIndexedFolders(
   folders: IndexedFolderRecord[],
   options: WatchOptions,
 ): Promise<() => Promise<void>> {
-  if (import.meta.env.VITE_E2E_SQLITE === "1" || folders.length === 0) {
+  if (folders.length === 0) {
     return async () => {};
+  }
+
+  if (import.meta.env.VITE_E2E_SQLITE === "1" && typeof window !== "undefined") {
+    const roots = folders.map((f) => f.rootPath);
+    const byRoot = new Map(folders.map((f) => [f.rootPath, f]));
+    const unwatch = window.__STACKDROP_E2E__?.watchFolders?.(roots, (rootPath) => {
+      const folder = byRoot.get(rootPath);
+      if (folder) options.onFolderDirty(folder);
+    });
+    return async () => {
+      if (typeof unwatch === "function") unwatch();
+    };
   }
 
   const unwatchers: UnwatchFn[] = [];

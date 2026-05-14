@@ -24,6 +24,8 @@ export interface DiscoveredFileDto {
   modifiedAtMs: number;
 }
 
+type E2EWatchFoldersHook = (paths: string[], onDirtyRoot: (rootPath: string) => void) => void | (() => void);
+
 declare global {
   interface Window {
     __STACKDROP_E2E__?: {
@@ -33,6 +35,7 @@ declare global {
       readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null;
       ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
       extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
+      watchFolders?: E2EWatchFoldersHook;
     };
   }
 }

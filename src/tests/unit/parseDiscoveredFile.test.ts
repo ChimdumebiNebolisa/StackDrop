@@ -38,6 +38,23 @@ describe("parseDiscoveredFile", () => {
     expect(result.extractedText).toContain("local OCR");
   });
 
+  it("keeps text-layer PDF results as parsed_text without OCR", async () => {
+    vi.mocked(parseFileContent).mockResolvedValue({
+      status: "parsed_text",
+      extractedText: "STACKDROP_PDF_TEXT_TOKEN_20260514 and enough characters here",
+    });
+
+    const result = await parseDiscoveredFile({
+      rootPath: "/root",
+      absolutePath: "/root/text-layer.pdf",
+      extension: "pdf",
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+
+    expect(result.parseStatus).toBe("parsed_text");
+    expect(vi.mocked(invokeOcrPdfTextUnderRoot)).not.toHaveBeenCalled();
+  });
+
   it("keeps parsed text when OCR fallback fails but text parser returned content", async () => {
     vi.mocked(parseFileContent).mockResolvedValue({
       status: "parsed_text",
@@ -69,6 +86,24 @@ describe("parseDiscoveredFile", () => {
     expect(result.parseStatus).toBe("parsed_text");
     expect(result.extractedText).toContain("legacy doc");
     expect(parseFileContent).not.toHaveBeenCalled();
+  });
+
+  it("marks parse_failed when OCR fallback fails and no text exists", async () => {
+    vi.mocked(parseFileContent).mockResolvedValue({
+      status: "parsed_text",
+      extractedText: " ",
+    });
+    vi.mocked(invokeOcrPdfTextUnderRoot).mockRejectedValue(new Error("tesseract missing"));
+
+    const result = await parseDiscoveredFile({
+      rootPath: "/root",
+      absolutePath: "/root/scanned.pdf",
+      extension: "pdf",
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+
+    expect(result.parseStatus).toBe("parse_failed");
+    expect(result.parseError).toContain("OCR fallback failed");
   });
 
   it("marks parse_failed when legacy .doc extraction fails", async () => {
