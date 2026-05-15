@@ -10,6 +10,10 @@
     "sql:allow-execute",
     "fs:allow-read-file",
     "fs:allow-read-text-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$HOME/**" }]
+    },
     "fs:allow-watch",
     "fs:allow-unwatch"
   ]

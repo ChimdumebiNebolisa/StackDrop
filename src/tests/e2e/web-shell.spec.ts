@@ -251,7 +251,7 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
   await page.getByRole("button", { name: "Index library" }).click();
   await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
 
-  const backgroundCheckbox = page.getByLabel("Background indexing");
+  const backgroundCheckbox = page.getByLabel("Auto-index while open");
   await expect(backgroundCheckbox).toBeChecked();
   await backgroundCheckbox.uncheck();
   await expect(backgroundCheckbox).not.toBeChecked();
@@ -280,7 +280,7 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
   await page.getByLabel("Search documents").fill("WATCH_MODIFIED_TOKEN_20260514");
   await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
   await page.getByLabel("Search documents").fill(TXT_TOKEN);
-  await expect(page.getByText("No documents match the current filters.")).toBeVisible();
+  await expect(page.getByText("No documents matched this search.")).toBeVisible();
 
   await page.evaluate(() => {
     window.__STACKDROP_E2E_TEST__?.renameFile("watch-new.txt", "watch-renamed.txt");
@@ -294,14 +294,14 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
     window.__STACKDROP_E2E_TEST__?.deleteFile("watch-renamed.txt");
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
-  await expect(page.getByText("No documents match the current filters.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("No documents matched this search.")).toBeVisible({ timeout: 15_000 });
 });
 
 test("default roots fallback and manual Add folder flow still works", async ({ page }) => {
   await installFeatureShim(page, { defaultRoots: [] });
   await page.goto("/");
-  await expect(page.getByText("Indexed locations: 0")).toBeVisible();
-  await page.getByRole("button", { name: "Add folder…" }).click();
+  await expect(page.getByText("0 indexed locations")).toBeVisible();
+  await page.getByRole("button", { name: "Add folder" }).click();
   await expect(page.getByTitle(ROOT_PATH)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
 });

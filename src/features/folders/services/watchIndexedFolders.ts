@@ -1,14 +1,16 @@
 import { watch, type UnwatchFn } from "@tauri-apps/plugin-fs";
 
 import type { IndexedFolderRecord } from "../../../domain/documents/types";
+import { invokeDiscoverSupportedFiles } from "./tauriFolderFs";
 
 interface WatchOptions {
-  onFolderDirty: (folder: IndexedFolderRecord) => void;
+  onFolderDirty: (folder: IndexedFolderRecord) => boolean | void;
 }
 
 const SUPPORTED_EXTENSIONS = new Set(["txt", "pdf", "docx", "doc"]);
 const FOLDER_RESCAN_DEBOUNCE_MS = 1200;
 const FS_EVENT_DEBOUNCE_MS = 450;
+const POLL_FALLBACK_MS = 5000;
 
 function extensionOf(path: string): string | null {
   const dot = path.lastIndexOf(".");
@@ -20,9 +22,21 @@ function eventTouchesSupportedFile(paths: string[]): boolean {
   if (paths.length === 0) return true;
   return paths.some((path) => {
     const ext = extensionOf(path);
-    if (!ext) return false;
+    if (!ext) return true;
     return SUPPORTED_EXTENSIONS.has(ext);
   });
+}
+
+async function folderSignature(rootPath: string): Promise<string | null> {
+  try {
+    const files = await invokeDiscoverSupportedFiles(rootPath);
+    return files
+      .map((file) => `${file.absolutePath}|${file.sizeBytes}|${file.modifiedAtMs}`)
+      .sort()
+      .join("\n");
+  } catch {
+    return null;
+  }
 }
 
 export async function watchIndexedFolders(
@@ -46,9 +60,31 @@ export async function watchIndexedFolders(
   }
 
   const unwatchers: UnwatchFn[] = [];
+  const pollTimers: ReturnType<typeof setInterval>[] = [];
   const rescanTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   for (const folder of folders) {
+    let lastSignature = await folderSignature(folder.rootPath);
+    let pollInFlight = false;
+    const pollTimer = setInterval(() => {
+      if (pollInFlight) return;
+      pollInFlight = true;
+      void folderSignature(folder.rootPath)
+        .then((nextSignature) => {
+          if (nextSignature !== null && lastSignature !== null && nextSignature !== lastSignature) {
+            const handled = options.onFolderDirty(folder);
+            if (handled === false) return;
+          }
+          if (nextSignature !== null) {
+            lastSignature = nextSignature;
+          }
+        })
+        .finally(() => {
+          pollInFlight = false;
+        });
+    }, POLL_FALLBACK_MS);
+    pollTimers.push(pollTimer);
+
     const unwatch = await watch(
       folder.rootPath,
       (event) => {
@@ -69,6 +105,9 @@ export async function watchIndexedFolders(
   return async () => {
     for (const timer of rescanTimers.values()) {
       clearTimeout(timer);
+    }
+    for (const timer of pollTimers) {
+      clearInterval(timer);
     }
     rescanTimers.clear();
     for (const unwatch of unwatchers) {

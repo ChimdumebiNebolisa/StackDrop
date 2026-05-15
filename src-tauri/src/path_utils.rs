@@ -2,13 +2,25 @@ use std::path::{Path, PathBuf};
 
 const MAX_READ_BYTES: u64 = 50 * 1024 * 1024;
 
+/// Convert canonical Windows verbatim paths into strings accepted by the JS fs plugin.
+pub fn path_for_frontend(path: &Path) -> String {
+    let raw = path.to_string_lossy().to_string();
+    if let Some(stripped) = raw.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{}", stripped);
+    }
+    if let Some(stripped) = raw.strip_prefix(r"\\?\") {
+        return stripped.to_string();
+    }
+    raw
+}
+
 /// Canonicalize a user-selected path and ensure it points to a regular file.
 pub fn normalize_selected_file_path(path: PathBuf) -> Result<String, String> {
     let canonical = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
     if !canonical.is_file() {
         return Err("Selected path is not a file.".to_string());
     }
-    Ok(canonical.to_string_lossy().to_string())
+    Ok(path_for_frontend(&canonical))
 }
 
 /// Canonicalize a user-selected path and ensure it points to a directory.
@@ -17,7 +29,7 @@ pub fn normalize_selected_folder_path(path: PathBuf) -> Result<String, String> {
     if !canonical.is_dir() {
         return Err("Selected path is not a directory.".to_string());
     }
-    Ok(canonical.to_string_lossy().to_string())
+    Ok(path_for_frontend(&canonical))
 }
 
 /// Ensure `candidate` resolves under `root` (both canonicalized).
@@ -41,7 +53,10 @@ pub fn read_file_bytes_under_root(root_path: &str, absolute_path: &str) -> Resul
     let meta = std::fs::metadata(&canon).map_err(|e| e.to_string())?;
     let len = meta.len();
     if len > MAX_READ_BYTES {
-        return Err(format!("File exceeds maximum read size of {} bytes.", MAX_READ_BYTES));
+        return Err(format!(
+            "File exceeds maximum read size of {} bytes.",
+            MAX_READ_BYTES
+        ));
     }
     std::fs::read(&canon).map_err(|e| e.to_string())
 }
@@ -76,6 +91,15 @@ mod tests {
         let result = normalize_selected_folder_path(dir.clone());
         assert!(result.is_ok());
         let _ = std::fs::remove_dir(dir);
+    }
+
+    #[test]
+    fn frontend_paths_strip_windows_verbatim_prefixes() {
+        let local = Path::new(r"\\?\C:\Users\Example\Documents");
+        assert_eq!(path_for_frontend(local), r"C:\Users\Example\Documents");
+
+        let unc = Path::new(r"\\?\UNC\server\share\Documents");
+        assert_eq!(path_for_frontend(unc), r"\\server\share\Documents");
     }
 
     #[test]

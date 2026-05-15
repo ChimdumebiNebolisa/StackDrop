@@ -10,7 +10,7 @@ use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
 
 use crate::path_utils::{
-    assert_path_within_root, normalize_selected_folder_path,
+    assert_path_within_root, normalize_selected_folder_path, path_for_frontend,
     read_file_bytes_under_root as read_bytes_checked,
 };
 
@@ -74,7 +74,7 @@ pub fn discover_supported_files(root_path: String) -> Result<Vec<DiscoveredFileD
             .map_err(|e| e.to_string())?
             .as_millis() as i64;
 
-        let absolute_path = path.to_string_lossy().to_string();
+        let absolute_path = path_for_frontend(path);
         let relative_path = path
             .strip_prefix(&root_canon)
             .map_err(|e| e.to_string())?
@@ -257,13 +257,14 @@ fn ocr_pdf_with_tools(
 
     let temp_dir = make_temp_subdir("stackdrop-ocr")?;
     let output_prefix = temp_dir.join("page");
+    let pdf_path = path_for_frontend(&canon);
 
     let mut pdftoppm = if let Some(path) = &tool_paths.pdftoppm {
         Command::new(path)
     } else {
         Command::new("pdftoppm")
     };
-    pdftoppm.arg("-png").arg(&canon).arg(&output_prefix);
+    pdftoppm.arg("-png").arg(&pdf_path).arg(&output_prefix);
     let pdftoppm_result = run_command_capture(pdftoppm, "PDF rasterization failed");
     if pdftoppm_result.is_err() {
         let _ = std::fs::remove_dir_all(&temp_dir);
@@ -346,7 +347,8 @@ fn extract_doc_text_with_tools(
     } else {
         Command::new("antiword")
     };
-    antiword.arg(&canon);
+    let doc_path = path_for_frontend(&canon);
+    antiword.arg(&doc_path);
     antiword.env("LANG", "C.UTF-8");
     if let Some(home) = &tool_paths.antiword_home {
         antiword.env("ANTIWORDHOME", home);
@@ -393,7 +395,7 @@ fn push_unique_root(
     if !canon.is_dir() {
         return Ok(());
     }
-    let s = canon.to_string_lossy().to_string();
+    let s = path_for_frontend(&canon);
     if seen.insert(s.clone()) {
         out.push(DefaultDocumentRootDto {
             label: label.to_string(),
