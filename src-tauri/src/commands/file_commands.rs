@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use dirs::{desktop_dir, document_dir, download_dir, home_dir};
 use serde::Serialize;
 use tauri::AppHandle;
@@ -116,7 +119,18 @@ pub fn read_file_bytes_under_root(
     read_bytes_checked(root, &absolute_path)
 }
 
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn suppress_child_console(cmd: &mut Command) {
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
 fn run_command_capture(mut cmd: Command, context: &str) -> Result<String, String> {
+    suppress_child_console(&mut cmd);
     let output = cmd
         .output()
         .map_err(|e| format!("{context}: failed to spawn command: {e}"))?;

@@ -200,6 +200,10 @@ body {
   background: var(--color-canvas-fog);
 }
 
+.nav-link:focus-visible {
+  outline-offset: 2px;
+}
+
 .nav-muted {
   font-size: 0.85rem;
   color: var(--color-ash-slate);
@@ -333,7 +337,8 @@ p {
   color: var(--color-ash-slate);
 }
 
-.filter-field select {
+.filter-field select,
+.settings-control select {
   padding: 8px 14px;
   border-radius: var(--radius-control);
   border: 1px solid var(--color-silver-mist);
@@ -345,8 +350,19 @@ p {
   appearance: auto;
 }
 
-.filter-field select:hover {
+.filter-field select:hover,
+.settings-control select:hover {
   background: var(--color-canvas-fog);
+}
+
+.filter-field select:focus-visible,
+.settings-control select:focus-visible,
+.search-input:focus-visible {
+  border-color: var(--color-obsidian-black);
+}
+
+.filters--compact {
+  margin-top: 0;
 }
 
 /* ── Compact index toolbar (design.md §10.3) ────────────────── */
@@ -403,6 +419,13 @@ p {
 button {
   font: inherit;
   cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
 }
 
 .button-primary {
@@ -472,6 +495,31 @@ button {
   cursor: not-allowed;
 }
 
+/* Results arrangement */
+
+.arrange-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  padding: var(--spacing-12) var(--spacing-16);
+  border: 1px solid var(--color-ghost-gray);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-white);
+}
+
+.results-summary {
+  color: var(--color-midnight-ink);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+  padding-bottom: 8px;
+}
+
+.results-summary-failed {
+  color: var(--color-danger-text);
+}
+
 /* ── Badges (design.md §10.6) ───────────────────────────────── */
 
 .badge {
@@ -503,12 +551,46 @@ button {
 /* ── Result rows (design.md §10.5) ──────────────────────────── */
 
 .doc-list {
-  list-style: none;
   padding: 0;
   margin: 0;
   border: 1px solid var(--color-ghost-gray);
   border-radius: var(--radius-card);
   overflow: hidden;
+  background: var(--color-paper-white);
+}
+
+.doc-group {
+  border-bottom: 1px solid var(--color-ghost-gray);
+}
+
+.doc-group:last-child {
+  border-bottom: none;
+}
+
+.doc-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  margin: 0;
+  padding: 10px var(--spacing-16);
+  border-bottom: 1px solid var(--color-ghost-gray);
+  background: var(--color-canvas-fog);
+  color: var(--color-midnight-ink);
+  font-size: var(--text-small);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+}
+
+.doc-group-heading span {
+  color: var(--color-ash-slate);
+  font-weight: 500;
+}
+
+.doc-group-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .doc-row {
@@ -520,7 +602,9 @@ button {
 }
 
 .doc-link {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-16);
   padding: 14px var(--spacing-16);
   text-decoration: none;
   color: inherit;
@@ -532,8 +616,13 @@ button {
 
 .doc-badges {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-8);
   margin-bottom: var(--spacing-4);
+}
+
+.doc-row-main {
+  min-width: 0;
 }
 
 .doc-name {
@@ -553,12 +642,47 @@ button {
   word-break: break-all;
 }
 
+.doc-snippet {
+  display: block;
+  margin-top: var(--spacing-4);
+  color: var(--color-midnight-ink);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.doc-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: var(--spacing-4);
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+  text-align: right;
+}
+
 .doc-row--failed {
   border-left: 3px solid var(--color-danger-border);
 }
 
 .doc-row--failed .doc-path {
   color: var(--color-danger-text);
+}
+
+.document-library--compact .doc-link {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.document-library--compact .doc-badges {
+  margin-bottom: 2px;
+}
+
+.document-library--compact .doc-name,
+.document-library--compact .doc-path,
+.document-library--compact .doc-snippet {
+  line-height: 1.25;
 }
 
 /* ── Manage locations disclosure (design.md §10.7) ──────────── */
@@ -601,6 +725,40 @@ button {
   padding: 0 var(--spacing-16) var(--spacing-16);
 }
 
+.locations-panel,
+.settings-panel,
+.about-panel {
+  border: 1px solid var(--color-ghost-gray);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-white);
+  padding: var(--spacing-16);
+  scroll-margin-top: var(--spacing-20);
+}
+
+.section-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-16);
+  margin-bottom: var(--spacing-12);
+}
+
+.locations-panel h2,
+.settings-panel h2,
+.about-panel h2 {
+  margin: 0 0 var(--spacing-4);
+  color: var(--color-midnight-ink);
+  font-size: var(--text-subheading);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+}
+
+.locations-panel .muted,
+.settings-panel .muted,
+.about-panel .muted {
+  margin: 0 0 var(--spacing-4);
+}
+
 .folder-list {
   list-style: none;
   padding: 0;
@@ -637,6 +795,56 @@ button {
   gap: var(--spacing-8);
   flex-shrink: 0;
   align-items: center;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, max-content);
+  gap: var(--spacing-16);
+  align-items: end;
+  margin-top: var(--spacing-12);
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-12);
+  color: var(--color-midnight-ink);
+  font-size: var(--text-small);
+  cursor: pointer;
+}
+
+.settings-toggle input[type="checkbox"] {
+  margin-top: 3px;
+  accent-color: var(--color-obsidian-black);
+}
+
+.settings-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.settings-toggle small {
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+}
+
+.settings-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.settings-control span {
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  font-weight: 500;
+}
+
+.empty-state-block--compact {
+  padding: var(--spacing-24);
 }
 
 /* ── Empty states (design.md §10.8) ─────────────────────────── */
@@ -865,4 +1073,38 @@ button {
   color: var(--color-danger-text);
   padding: 8px 14px;
   border-radius: var(--radius-control);
+}
+
+@media (max-width: 760px) {
+  .layout-root {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-ghost-gray);
+  }
+
+  .layout-main {
+    padding: var(--spacing-20) var(--spacing-16) var(--spacing-32);
+  }
+
+  .doc-link,
+  .folder-row,
+  .section-heading-row,
+  .settings-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .doc-meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .folder-actions,
+  .index-toolbar-actions {
+    width: 100%;
+  }
 }

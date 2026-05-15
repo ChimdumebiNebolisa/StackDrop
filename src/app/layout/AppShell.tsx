@@ -16,6 +16,18 @@ export function AppShell() {
           <Link to="/" className="nav-link">
             Library
           </Link>
+          <Link to="/#locations" className="nav-link">
+            Locations
+          </Link>
+          <Link to="/?parseStatus=parse_failed#library" className="nav-link">
+            Failed parses
+          </Link>
+          <Link to="/#settings" className="nav-link">
+            Settings
+          </Link>
+          <Link to="/#about" className="nav-link">
+            About
+          </Link>
         </nav>
       </aside>
       <main className="layout-main">

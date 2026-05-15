@@ -181,10 +181,22 @@ async function installFeatureShim(
   }, payload);
 }
 
+function documentLink(page: Page, fileName: string) {
+  const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return page.getByRole("link", { name: new RegExp(escaped) });
+}
+
 test("loads StackDrop branding and library shell", async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto("/", { waitUntil: "load", timeout: 180_000 });
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible({ timeout: 180_000 });
+  await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible({ timeout: 180_000 });
+  await expect(page.getByRole("link", { name: "Locations" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Failed parses" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "About" })).toBeVisible();
+  await expect(page.getByLabel("Sort documents")).toBeVisible();
+  await expect(page.getByLabel("Group documents")).toBeVisible();
+  await expect(page.getByLabel("Set view density")).toBeVisible();
   await expect(page).toHaveTitle(/StackDrop/i, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
 });
@@ -192,13 +204,13 @@ test("loads StackDrop branding and library shell", async ({ page }) => {
 test("indexes all supported file fixtures and validates parse statuses", async ({ page }) => {
   await installFeatureShim(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Index library" }).click();
-  await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("document-list").getByText("minimal.docx")).toBeVisible();
-  await expect(page.getByTestId("document-list").getByText("text-layer.pdf")).toBeVisible();
-  await expect(page.getByTestId("document-list").getByText("scanned-image-only.pdf")).toBeVisible();
-  await expect(page.getByTestId("document-list").getByText("legacy-sample.doc")).toBeVisible();
-  await expect(page.getByTestId("document-list").getByText("broken.doc")).toBeVisible();
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
+  await expect(documentLink(page, "minimal.docx")).toBeVisible();
+  await expect(documentLink(page, "text-layer.pdf")).toBeVisible();
+  await expect(documentLink(page, "scanned-image-only.pdf")).toBeVisible();
+  await expect(documentLink(page, "legacy-sample.doc")).toBeVisible();
+  await expect(documentLink(page, "broken.doc")).toBeVisible();
 
   await expect(page.getByLabel("Filter by file type")).toContainText(".txt");
   await expect(page.getByLabel("Filter by file type")).toContainText(".pdf");
@@ -207,19 +219,29 @@ test("indexes all supported file fixtures and validates parse statuses", async (
   await expect(page.getByLabel("Filter by parse status")).toContainText("Parsed (text)");
   await expect(page.getByLabel("Filter by parse status")).toContainText("Parsed (OCR)");
   await expect(page.getByLabel("Filter by parse status")).toContainText("Parse failed");
+  await expect(page.getByLabel("Sort documents")).toContainText("Recently indexed");
+  await expect(page.getByLabel("Group documents")).toContainText("Parse status");
+  await expect(page.getByLabel("Set view density")).toContainText("Compact");
 
   await page.getByLabel("Search documents").fill(TXT_TOKEN);
-  await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible();
+  await expect(documentLink(page, "sample.txt")).toBeVisible();
   await page.getByLabel("Search documents").fill(DOCX_TOKEN);
-  await expect(page.getByTestId("document-list").getByText("minimal.docx")).toBeVisible();
+  await expect(documentLink(page, "minimal.docx")).toBeVisible();
   await page.getByLabel("Search documents").fill(PDF_TEXT_TOKEN);
-  await expect(page.getByTestId("document-list").getByText("text-layer.pdf")).toBeVisible();
+  await expect(documentLink(page, "text-layer.pdf")).toBeVisible();
   await page.getByLabel("Search documents").fill(OCR_TOKEN);
-  await expect(page.getByTestId("document-list").getByText("scanned-image-only.pdf")).toBeVisible();
+  await expect(documentLink(page, "scanned-image-only.pdf")).toBeVisible();
   await page.getByLabel("Search documents").fill(DOC_TOKEN);
-  await expect(page.getByTestId("document-list").getByText("legacy-sample.doc")).toBeVisible();
+  await expect(documentLink(page, "legacy-sample.doc")).toBeVisible();
 
   await page.getByLabel("Search documents").fill("");
+  await page.getByLabel("Group documents").selectOption("parse_status");
+  await expect(page.getByRole("heading", { name: /Parse failed/i })).toBeVisible();
+  await page.getByRole("link", { name: "Failed parses" }).click();
+  await expect(page.getByLabel("Filter by parse status")).toHaveValue("parse_failed");
+  await page.getByLabel("Filter by parse status").selectOption("");
+  await page.getByLabel("Group documents").selectOption("none");
+
   await page.getByRole("link", { name: /text-layer\.pdf/ }).click();
   await expect(page.locator("dl.meta-grid")).toContainText("parsed text");
   await page.getByRole("link", { name: "← Back" }).click();
@@ -248,10 +270,10 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
     ],
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Index library" }).click();
-  await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
 
-  const backgroundCheckbox = page.getByLabel("Auto-index while open");
+  const backgroundCheckbox = page.getByLabel("Index controls").getByLabel("Auto-index while open");
   await expect(backgroundCheckbox).toBeChecked();
   await backgroundCheckbox.uncheck();
   await expect(backgroundCheckbox).not.toBeChecked();
@@ -262,7 +284,7 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
     window.__STACKDROP_E2E_TEST__?.emitWatch();
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
-  await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toHaveCount(0);
+  await expect(documentLink(page, "watch-new.txt")).toHaveCount(0);
 
   await backgroundCheckbox.check();
   await expect(backgroundCheckbox).toBeChecked();
@@ -270,15 +292,15 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
 
-  await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toHaveCount(1);
+  await expect(documentLink(page, "watch-new.txt")).toBeVisible({ timeout: 15_000 });
+  await expect(documentLink(page, "watch-new.txt")).toHaveCount(1);
 
   await page.evaluate(() => {
     window.__STACKDROP_E2E_TEST__?.modifyTxt("sample.txt", "WATCH_MODIFIED_TOKEN_20260514");
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
   await page.getByLabel("Search documents").fill("WATCH_MODIFIED_TOKEN_20260514");
-  await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
   await page.getByLabel("Search documents").fill(TXT_TOKEN);
   await expect(page.getByText("No documents matched this search.")).toBeVisible();
 
@@ -287,8 +309,8 @@ test("auto re-index watcher handles create/modify/delete/rename with debounce", 
     window.__STACKDROP_E2E_TEST__?.emitWatch();
   });
   await page.getByLabel("Search documents").fill("WATCH_CREATE_TOKEN_20260514");
-  await expect(page.getByTestId("document-list").getByText("watch-renamed.txt")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("document-list").getByText("watch-new.txt")).toHaveCount(0);
+  await expect(documentLink(page, "watch-renamed.txt")).toBeVisible({ timeout: 15_000 });
+  await expect(documentLink(page, "watch-new.txt")).toHaveCount(0);
 
   await page.evaluate(() => {
     window.__STACKDROP_E2E_TEST__?.deleteFile("watch-renamed.txt");
@@ -301,16 +323,16 @@ test("default roots fallback and manual Add folder flow still works", async ({ p
   await installFeatureShim(page, { defaultRoots: [] });
   await page.goto("/");
   await expect(page.getByText("0 indexed locations")).toBeVisible();
-  await page.getByRole("button", { name: "Add folder" }).click();
-  await expect(page.getByTitle(ROOT_PATH)).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Index controls").getByRole("button", { name: "Add folder" }).click();
+  await expect(page.locator(".folder-path", { hasText: ROOT_PATH })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
 });
 
 test("proof screenshots — library, search, and detail", async ({ page }) => {
   await installFeatureShim(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Index library" }).click();
-  await expect(page.getByTestId("document-list").getByText("sample.txt")).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
   mkdirSync("docs/proof-screenshots", { recursive: true });
   await page.screenshot({ path: "docs/proof-screenshots/01-library-after-index.png", fullPage: true });
   await page.getByLabel("Search documents").fill(PDF_TEXT_TOKEN);
