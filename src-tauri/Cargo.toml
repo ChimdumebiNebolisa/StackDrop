@@ -1,6 +1,6 @@
 [package]
 name = "stackdrop"
-version = "2.0.2"
+version = "2.0.3"
 description = "Local-first desktop folder document indexer"
 authors = ["StackDrop"]
 license = "MIT"
