@@ -1,6 +1,6 @@
 # StackDrop Architecture
 
-> **Superseded** — This architecture draft assumed **notes, links, and `.md`** as first-class types. The **shipped codebase** follows the boundaries in [`PROOF.md`](PROOF.md) and [`API.md`](API.md) (Tauri commands + SQLite services). For high-level structure, prefer those docs and [`stackdrop-architecture.md`](../stackdrop-architecture.md) if it matches your checkout.
+> **Superseded** — This architecture draft assumed **notes, links, and `.md`** as first-class types. The **shipped codebase** follows the boundaries in [`PROOF.md`](PROOF.md) and [`API.md`](API.md) (Tauri commands + SQLite services). For high-level structure, prefer those docs and [`stackdrop-architecture.md`](stackdrop-architecture.md) if it matches your checkout.
 
 Version: v1.0  
 Status: Locked for initial build  

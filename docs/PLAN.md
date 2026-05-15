@@ -1,6 +1,6 @@
 # StackDrop Plan
 
-> **Superseded** — This plan was written for the **older PRD** in [`PRD.md`](PRD.md) (notes/links/extra formats). It does **not** describe the shipped document-indexer scope. See [`stackdrop-prd.md`](../stackdrop-prd.md), [`stackdrop-plan.md`](../stackdrop-plan.md), and [`PROOF.md`](PROOF.md).
+> **Superseded** — This plan was written for the **older PRD** in [`PRD.md`](PRD.md) (notes/links/extra formats). It does **not** describe the shipped document-indexer scope. See [`stackdrop-prd.md`](stackdrop-prd.md), [`stackdrop-plan.md`](stackdrop-plan.md), and [`PROOF.md`](PROOF.md).
 
 Version: v1.0
 Status: In progress
