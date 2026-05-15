@@ -13,7 +13,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="nav-block">
-          <Link to="/" className="nav-link">
+          <Link to="/#library" className="nav-link">
             Library
           </Link>
           <Link to="/#locations" className="nav-link">

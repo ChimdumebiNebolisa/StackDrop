@@ -129,19 +129,23 @@ body {
 .layout-root {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .layout-sidebar {
   border-right: 1px solid var(--color-ghost-gray);
   background: var(--color-paper-white);
   padding: var(--spacing-20) var(--spacing-16);
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .layout-main {
   background: var(--color-paper-white);
   padding: var(--spacing-24) var(--spacing-32) var(--spacing-40);
   overflow: auto;
+  scroll-behavior: smooth;
 }
 
 /* ── Sidebar components ─────────────────────────────────────── */
@@ -1078,11 +1082,16 @@ summary:focus-visible {
 @media (max-width: 760px) {
   .layout-root {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .layout-sidebar {
     border-right: none;
     border-bottom: 1px solid var(--color-ghost-gray);
+    height: auto;
+    overflow-y: visible;
   }
 
   .layout-main {

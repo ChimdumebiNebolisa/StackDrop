@@ -199,6 +199,13 @@ test("loads StackDrop branding and library shell", async ({ page }) => {
   await expect(page.getByLabel("Set view density")).toBeVisible();
   await expect(page).toHaveTitle(/StackDrop/i, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
+
+  const sidebarTop = (await page.locator(".layout-sidebar").boundingBox())?.y;
+  await page.locator(".layout-main").evaluate((main) => {
+    main.scrollTop = main.scrollHeight;
+  });
+  await expect.poll(async () => (await page.locator(".layout-sidebar").boundingBox())?.y).toBe(sidebarTop);
+  await expect.poll(async () => page.locator(".layout-main").evaluate((main) => getComputedStyle(main).scrollBehavior)).toBe("smooth");
 });
 
 test("indexes all supported file fixtures and validates parse statuses", async ({ page }) => {
