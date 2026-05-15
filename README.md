@@ -1,125 +1,68 @@
 # StackDrop
 
-StackDrop is a desktop-first document indexing app built with Tauri + React. It scans local folders, extracts text from supported files, and gives you one searchable library with filters and detail views. Everything stays local (SQLite + FTS5).
+StackDrop is a desktop app that lets you search your local documents by file name and document content.
 
-## What problem it solves
+## For Users
 
-Files are often spread across Documents, Desktop, Downloads, and custom folders. StackDrop gives you a single place to:
+### Download for Windows
 
-- index supported files from selected folders
-- search by filename or extracted content
-- inspect parse status and text preview per document
+Download the latest Windows installer here:
 
-## Key features
+https://github.com/ChimdumebiNebolisa/StackDrop/releases/latest
 
-- **Index library:** one action to scan all registered locations.
-- **Auto-index while open:** indexed folders are watched and refreshed after local file changes.
-- **Add/re-scan/remove locations:** manage what is indexed.
-- **Full-text search + filters:** location, file type, parse status.
-- **Document details:** absolute path, metadata, parse result (`parsed_text`, `parsed_ocr`, `parse_failed`), extracted preview.
-- **Local-only architecture:** no cloud account, no remote API, no auth backend.
+Open the `.exe` installer, follow the setup steps, then launch StackDrop.
 
-## Supported file types
+### What StackDrop does
 
-| Extension | Support |
-|---|---|
-| `.txt` | Full support |
-| `.pdf` | Text-layer extraction (`pdf.js`) + local OCR fallback for scanned/image-only PDFs |
-| `.docx` | Text extraction (`mammoth`) |
-| `.doc` | Legacy extraction (packaged helper in Windows installer) |
+- Searches documents on your computer
+- Indexes common folders like Documents, Desktop, and Downloads
+- Lets you add more folders
+- Searches inside supported files, not just file names
+- Works locally on your computer
+- Does not require an account
+- Does not upload your files to the cloud
+- Does not delete, rename, or move your files
 
-## Screenshots / proof
+### Supported files
 
-Desktop-only app (no hosted web demo). Current proof screenshots:
+- `.txt`
+- `.pdf`
+- `.docx`
+- `.doc`
 
-- [`docs/proof-screenshots/01-library-after-index.png`](docs/proof-screenshots/01-library-after-index.png)
-- [`docs/proof-screenshots/02-search-by-title.png`](docs/proof-screenshots/02-search-by-title.png)
-- [`docs/proof-screenshots/03-search-by-content.png`](docs/proof-screenshots/03-search-by-content.png)
-- [`docs/proof-screenshots/04-document-detail.png`](docs/proof-screenshots/04-document-detail.png)
+### Notes
 
-## Requirements
+- Scanned PDFs may take longer because StackDrop can use local OCR.
+- Background indexing works while StackDrop is open.
+- The Windows installer is unsigned, so Windows may show a warning.
 
-- Node.js 20+
-- Rust stable toolchain
-- OS: Windows, macOS, or Linux
+## For Developers
 
-## Setup
+### Run locally
 
 ```bash
-git clone https://github.com/ChimdumebiNebolisa/StackDrop.git
-cd StackDrop
 npm install
-```
-
-No `.env` file is required for normal desktop use.
-
-For cloud/CI machines that need native dependencies, run:
-
-```bash
-npm run setup:cloud-agent
-```
-
-## Run
-
-```bash
-# Full desktop app (Tauri + web UI)
 npm run dev
-
-# Web UI only (no native file access)
-npm run dev:web
 ```
 
-## Test
+### Test
 
 ```bash
 npm run typecheck
 npm run test
-npm run test:e2e
-```
-
-Rust tests:
-
-```bash
-cd src-tauri
-cargo test
-```
-
-## Build
-
-Web assets:
-
-```bash
 npm run build
 ```
 
-Desktop bundles:
+### Build the Windows installer
 
 ```bash
 npm run tauri -- build
 ```
 
-## Windows installer/exe artifacts
+Local build output is generated under:
 
-When you build on Windows x64, output files are generated under `src-tauri/target/release/`:
+```text
+src-tauri/target/
+```
 
-- `bundle/nsis/StackDrop_<version>_x64-setup.exe` (recommended installer)
-- `bundle/msi/StackDrop_<version>_x64_en-US.msi`
-- `stackdrop.exe` (unsigned raw binary)
-
-Current project version: `2.0.0`.
-
-## Behavior notes
-
-- OCR fallback is local/offline and can be slower than normal PDF text extraction.
-- The Windows installer bundles OCR/legacy-doc helper binaries (`pdftoppm`, `tesseract`, `antiword`) and language data, so end users do not need to install them separately.
-- **Background indexing** is configurable in-app and watches indexed folders while StackDrop is open (no hidden system daemon).
-- StackDrop suggests available standard folders (Documents/Desktop/Downloads) when present; users can always add custom folders manually.
-
-## Notes
-
-- This repo is a desktop app, not a cloud SaaS product.
-- There is no auth service, no server API, and no AI pipeline in scope.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+That folder is created on your computer during build and is not committed to GitHub.
