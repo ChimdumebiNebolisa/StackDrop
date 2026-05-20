@@ -1,0 +1,117 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to build and release (e.g. v2.1.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Rust tests
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: Build Tauri (Windows)
+        run: npm run tauri -- build
+
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-nsis-installer
+          path: src-tauri/target/release/bundle/nsis/*.exe
+
+      - name: Upload MSI installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi-installer
+          path: src-tauri/target/release/bundle/msi/*.msi
+
+  release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download NSIS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-nsis-installer
+          path: artifacts/nsis
+
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-msi-installer
+          path: artifacts/msi
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: StackDrop ${{ inputs.tag }}
+          body: |
+            ## What's new
+
+            ### Search accuracy improvements
+            - **Weighted ranking**: filename matches rank above path matches, which rank above body matches (bm25 10/5/1)
+            - **Path search**: search by folder/path segments finds documents in nested directories
+            - **Prefix matching**: partial queries match as you type (e.g. "hel" finds "hello")
+            - **Highlighted snippets**: search results show `<mark>` highlighted body excerpts
+            - **Exact filename boost**: typing an exact filename always surfaces it first
+            - **Auto-relevance sort**: active search uses relevance ranking; empty browse uses recency
+
+            ### Other
+            - Safe FTS5 schema migration (old databases upgrade automatically)
+            - Documentation updated: OCR, watcher, `.doc` support, ranking behavior
+            - 22 new search accuracy tests (unit + integration + e2e)
+
+            ### Downloads
+            | File | Description |
+            |------|-------------|
+            | `StackDrop_*_x64-setup.exe` | Windows installer (recommended) |
+            | `StackDrop_*_x64_en-US.msi` | Windows MSI package |
+          files: |
+            artifacts/nsis/*.exe
+            artifacts/msi/*.msi
+          draft: false
+          prerelease: false
