@@ -94,7 +94,7 @@ export async function runFolderScan(folderId: string, client: SqlClient): Promis
       });
 
       if (parseStatus === "parsed_text" || parseStatus === "parsed_ocr") {
-        await searchRepo.indexDocument(id, file.fileName, parsed.extractedText ?? "");
+        await searchRepo.indexDocument(id, file.fileName, file.relativePath, parsed.extractedText ?? "");
       } else {
         await searchRepo.removeDocument(id);
       }

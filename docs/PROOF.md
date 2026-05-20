@@ -55,12 +55,18 @@ Produced by Playwright when `npm run test:e2e` runs:
 
 ## Known limitations
 
-- **Scanned PDFs** without a text layer may fail extraction or yield empty text (no OCR in v1).
-- **No continuous file watcher** — user must run **Index library** (or per-location **Re-scan**) to refresh.
 - **Default roots** require the OS-standard folders to exist; unusual profiles may get fewer than three seeds.
 - **`npm run dev:web`** does not load the Tauri shell; defaults and disk reads require **Tauri** or **e2e shims** (`VITE_E2E_SQLITE`).
 
+## Implemented features (formerly limitations)
+
+- **OCR for scanned PDFs:** local offline OCR via `tesseract-ocr` + `poppler-utils` with automatic fallback.
+- **File watcher:** auto-re-indexes open folders when files change on disk.
+- **Legacy `.doc` support:** text extraction via `antiword` bridge.
+- **Search snippets:** `<mark>` highlighted body excerpts in search results via FTS5 `snippet()`.
+- **Weighted ranking:** filename matches rank above path matches, which rank above body matches.
+
 ## Next improvements
 
-- Incremental indexing / watcher mode (PRD change required).
-- Snippet/highlight in search results; code-split mammoth/pdf worker to shrink bundle.
+- Code-split mammoth/pdf worker to shrink bundle.
+- Typo tolerance / fuzzy search fallback (evaluated, deferred).

@@ -22,16 +22,18 @@ Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime
 | `absolute_path` | Canonical file path; **UNIQUE** app-wide (prevents duplicate index rows for same file) |
 | `relative_path` | Path relative to root (grouping / display) |
 | `file_name` | Base name for search + UI |
-| `file_extension` | `txt` \| `pdf` \| `docx` — enforced with `CHECK` |
+| `file_extension` | `txt` \| `pdf` \| `docx` \| `doc` — enforced with `CHECK` |
 | `size_bytes`, `modified_at` | Filesystem metadata at scan time |
-| `parse_status` | `indexed` \| `failed` |
+| `parse_status` | `parsed_text` \| `parsed_ocr` \| `parse_failed` |
 | `parse_error` | Populated when parse/read fails |
 | `extracted_text` | Plain text used for preview + FTS body when indexed |
 | `updated_at` | Last upsert time |
 
 ### `document_search` (FTS5)
 
-Virtual table: `document_id` (UNINDEXED), `file_name`, `body`. Rows exist only for successfully indexed documents; failed parses remove FTS rows.
+Virtual table: `document_id` (UNINDEXED), `file_name`, `relative_path`, `body`. Rows exist only for successfully parsed documents; failed parses remove FTS rows.
+
+Search uses weighted `bm25(document_search, 10.0, 5.0, 1.0)` for relevance ranking (filename > path > body), with an exact-filename boost and `snippet()` for highlighted body excerpts.
 
 ### `scan_runs`
 
@@ -51,8 +53,10 @@ Per-folder run: `started_at`, `finished_at`, counters `files_discovered`, `files
 `runMigrations` applies `schema.sql` (`CREATE IF NOT EXISTS`), then `migrateIndexedDocumentsSchema`, which:
 
 1. Detects legacy `indexed_documents` DDL that still allows removed types (e.g. `md`) or predates the canonical triple.
-2. Deletes FTS + document rows whose extension is not `txt` / `pdf` / `docx`.
+2. Deletes FTS + document rows whose extension is not `txt` / `pdf` / `docx` / `doc`.
 3. Rebuilds `indexed_documents` with the canonical `CHECK` and restores indexes.
+
+`migrateFtsSchemaV2` detects the old 2-column FTS table and rebuilds it with the 3-column schema (`file_name`, `relative_path`, `body`), repopulating from `indexed_documents`.
 
 ## Duplicate handling
 

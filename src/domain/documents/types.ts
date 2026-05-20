@@ -30,3 +30,7 @@ export interface DocumentQueryFilters {
   parseStatus?: ParseStatus;
   sort?: "relevance" | "recent";
 }
+
+export interface SearchResultRecord extends IndexedDocumentRecord {
+  searchSnippet?: string | null;
+}

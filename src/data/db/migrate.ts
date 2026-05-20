@@ -113,6 +113,26 @@ export async function migrateIndexedDocumentsSchema(client: SqlClient): Promise<
   await client.execute("PRAGMA foreign_keys=ON");
 }
 
+async function migrateFtsSchemaV2(client: SqlClient): Promise<void> {
+  const row = await client.get<{ sql: string | null }>(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='document_search' LIMIT 1",
+  );
+  if (!row?.sql) return;
+  if (row.sql.includes("relative_path")) return;
+
+  await client.execute("DROP TABLE IF EXISTS document_search");
+  await client.execute(`CREATE VIRTUAL TABLE document_search USING fts5(
+    document_id UNINDEXED,
+    file_name,
+    relative_path,
+    body
+  )`);
+  await client.execute(`INSERT INTO document_search (document_id, file_name, relative_path, body)
+    SELECT id, file_name, relative_path, COALESCE(extracted_text, '')
+    FROM indexed_documents
+    WHERE parse_status IN ('parsed_text', 'parsed_ocr')`);
+}
+
 export async function runMigrations(client?: SqlClient): Promise<void> {
   const db = client ?? (await getAppSqlClient());
   await dropLegacyV0IfPresent(db);
@@ -121,4 +141,5 @@ export async function runMigrations(client?: SqlClient): Promise<void> {
     await db.execute(statement);
   }
   await migrateIndexedDocumentsSchema(db);
+  await migrateFtsSchemaV2(db);
 }

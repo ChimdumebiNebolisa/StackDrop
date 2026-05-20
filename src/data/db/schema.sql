@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_updated ON indexed_documents(updated_at
 CREATE VIRTUAL TABLE IF NOT EXISTS document_search USING fts5(
   document_id UNINDEXED,
   file_name,
+  relative_path,
   body
 );
 

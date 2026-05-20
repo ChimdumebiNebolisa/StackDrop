@@ -52,7 +52,7 @@ This document constrains where code lives, which part owns which responsibility,
 ### 2.4 Parsing and ingestion
 **Ownership**
 - Converts supported source content into normalized text and metadata for storage and indexing.
-- Applies format-specific parsing rules for `.txt`, `.md`, and `.pdf`.
+- Applies format-specific parsing rules for `.txt`, `.pdf`, `.docx`, and `.doc`.
 - Returns explicit parse success or parse failure status.
 
 **Does not own**
