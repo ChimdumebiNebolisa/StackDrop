@@ -193,6 +193,18 @@ fn detect_tool_root_from_runtime() -> Option<PathBuf> {
             return Some(path);
         }
     }
+    // `cargo test` runs the test binary under `target/debug/deps/`, which is not next to
+    // bundled `resources/windows-tools`. On Windows CI, PATH may expose an `antiword` that
+    // answers `-h` but fails real extraction without ANTIWORDHOME; use the shipped tree.
+    #[cfg(all(test, target_os = "windows"))]
+    {
+        let manifest_tools = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("windows-tools");
+        if manifest_tools.is_dir() {
+            return Some(manifest_tools);
+        }
+    }
     let exe = std::env::current_exe().ok()?;
     let exe_dir = exe.parent()?.to_path_buf();
     let mut candidates = vec![exe_dir.join("resources").join("windows-tools")];
