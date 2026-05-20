@@ -101,6 +101,7 @@ jobs:
             - **Auto-relevance sort**: active search uses relevance ranking; empty browse uses recency
 
             ### Other
+            - Windows release CI: Rust tests use bundled `windows-tools` antiword (correct `ANTIWORDHOME` maps)
             - Safe FTS5 schema migration (old databases upgrade automatically)
             - Documentation updated: OCR, watcher, `.doc` support, ranking behavior
             - 22 new search accuracy tests (unit + integration + e2e)
