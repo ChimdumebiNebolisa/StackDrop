@@ -18,6 +18,8 @@ Open the `.exe` installer, follow the setup steps, then launch StackDrop.
 - Indexes common folders like Documents, Desktop, and Downloads
 - Lets you add more folders
 - Searches inside supported files, not just file names
+- Ranks results by relevance (file name matches first, then path, then content)
+- Highlights matching text in search results
 - Works locally on your computer
 - Does not require an account
 - Does not upload your files to the cloud

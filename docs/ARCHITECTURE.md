@@ -199,8 +199,9 @@ Only dependencies materially required for v1 are allowed.
 - SQLite FTS5 for full-text search
 
 ### Parsing
-- Native text handling for `.txt` and `.md`
-- PDF text extraction library in the TypeScript app layer
+- Native text handling for `.txt`
+- PDF text extraction (`pdf.js`) with local OCR fallback (`tesseract-ocr`)
+- `.docx` extraction (`mammoth`), `.doc` extraction (`antiword`)
 
 ### Validation and testing
 - Vitest for unit tests
