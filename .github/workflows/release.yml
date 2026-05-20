@@ -52,6 +52,8 @@ jobs:
       - name: Rust tests
         run: cargo test
         working-directory: src-tauri
+        env:
+          STACKDROP_TOOL_ROOT: ${{ github.workspace }}/src-tauri/resources/windows-tools
 
       - name: Build Tauri (Windows)
         run: npm run tauri -- build
