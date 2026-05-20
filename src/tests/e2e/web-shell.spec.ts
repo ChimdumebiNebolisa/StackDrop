@@ -335,6 +335,50 @@ test("default roots fallback and manual Add folder flow still works", async ({ p
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
 });
 
+test("search snippet visible for content match", async ({ page }) => {
+  await installFeatureShim(page);
+  await page.goto("/");
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Search documents").fill(TXT_TOKEN);
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".doc-snippet")).toBeVisible({ timeout: 5_000 });
+  const snippetHtml = await page.locator(".doc-snippet").innerHTML();
+  expect(snippetHtml).toContain("<mark>");
+});
+
+test("relevance sort: filename match ranks above body match", async ({ page }) => {
+  const tokenFiles: ShimFile[] = [
+    {
+      absolutePath: `${ROOT_PATH}\\TARGETWORD.txt`,
+      relativePath: "TARGETWORD.txt",
+      fileName: "TARGETWORD.txt",
+      extension: "txt",
+      sizeBytes: 20,
+      modifiedAtMs: Date.now(),
+      bytes: Array.from(new TextEncoder().encode("unrelated content here")),
+    },
+    {
+      absolutePath: `${ROOT_PATH}\\other.txt`,
+      relativePath: "other.txt",
+      fileName: "other.txt",
+      extension: "txt",
+      sizeBytes: 50,
+      modifiedAtMs: Date.now(),
+      bytes: Array.from(new TextEncoder().encode("this document mentions TARGETWORD in the body")),
+    },
+  ];
+  await installFeatureShim(page, { files: tokenFiles });
+  await page.goto("/");
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "TARGETWORD.txt")).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("Search documents").fill("TARGETWORD");
+  await expect(documentLink(page, "TARGETWORD.txt")).toBeVisible({ timeout: 15_000 });
+  const links = page.locator(".doc-row .doc-name");
+  const firstResult = await links.first().textContent();
+  expect(firstResult).toBe("TARGETWORD.txt");
+});
+
 test("proof screenshots — library, search, and detail", async ({ page }) => {
   await installFeatureShim(page);
   await page.goto("/");

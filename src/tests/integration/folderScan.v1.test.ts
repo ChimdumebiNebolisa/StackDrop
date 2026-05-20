@@ -257,4 +257,28 @@ describe("folder scan orchestration", () => {
     expect(all).toHaveLength(1);
     expect(all[0].fileName).toBe("a.txt");
   });
+
+  it("searches by relative path and finds the document", async () => {
+    const folderId = await addFixtureFolder();
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles).mockResolvedValue([
+      {
+        absolutePath: "C:\\fixture-root\\deep\\nested\\report.txt",
+        relativePath: "deep/nested/report.txt",
+        fileName: "report.txt",
+        extension: "txt",
+        sizeBytes: 10,
+        modifiedAtMs: Date.now(),
+      },
+    ]);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockResolvedValue(
+      new TextEncoder().encode("some content"),
+    );
+
+    await runFolderScan(folderId, client);
+
+    const hits = await queryDocuments(client, "nested", {});
+    expect(hits).toHaveLength(1);
+    expect(hits[0].fileName).toBe("report.txt");
+    expect(hits[0].relativePath).toBe("deep/nested/report.txt");
+  });
 });
