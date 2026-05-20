@@ -52,6 +52,8 @@ jobs:
       - name: Rust tests
         run: cargo test
         working-directory: src-tauri
+        env:
+          STACKDROP_TOOL_ROOT: ${{ github.workspace }}/src-tauri/resources/windows-tools
 
       - name: Build Tauri (Windows)
         run: npm run tauri -- build
@@ -101,7 +103,6 @@ jobs:
             - **Auto-relevance sort**: active search uses relevance ranking; empty browse uses recency
 
             ### Other
-            - Windows release CI: Rust tests use bundled `windows-tools` antiword (correct `ANTIWORDHOME` maps)
             - Safe FTS5 schema migration (old databases upgrade automatically)
             - Documentation updated: OCR, watcher, `.doc` support, ranking behavior
             - 22 new search accuracy tests (unit + integration + e2e)
