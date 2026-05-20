@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { useAppData } from "../../../app/providers/AppDataProvider";
-import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus } from "../../../domain/documents/types";
+import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus, SearchResultRecord } from "../../../domain/documents/types";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
 import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
 import { listIndexedFolders } from "../../folders/services/listIndexedFolders";
@@ -68,7 +68,12 @@ function firstSearchTerm(searchText: string): string | null {
     .find(Boolean) ?? null;
 }
 
-function snippetFor(document: IndexedDocumentRecord, searchText: string): string | null {
+function snippetFor(document: SearchResultRecord, searchText: string): { html: string } | { text: string } | null {
+  if (document.searchSnippet) {
+    const sanitized = document.searchSnippet.replace(/<(?!\/?mark>)[^>]*>/g, "");
+    return { html: sanitized };
+  }
+
   const term = firstSearchTerm(searchText);
   const text = document.extractedText?.replace(/\s+/g, " ").trim();
   if (!term || !text || document.parseStatus === "parse_failed") return null;
@@ -80,10 +85,10 @@ function snippetFor(document: IndexedDocumentRecord, searchText: string): string
   const end = Math.min(text.length, matchIndex + term.length + 90);
   const prefix = start > 0 ? "..." : "";
   const suffix = end < text.length ? "..." : "";
-  return `${prefix}${text.slice(start, end)}${suffix}`;
+  return { text: `${prefix}${text.slice(start, end)}${suffix}` };
 }
 
-function sortDocuments(documents: IndexedDocumentRecord[], sortMode: SortMode): IndexedDocumentRecord[] {
+function sortDocuments(documents: SearchResultRecord[], sortMode: SortMode): SearchResultRecord[] {
   const out = [...documents];
   if (sortMode === "best_match") return out;
 
@@ -104,7 +109,7 @@ function sortDocuments(documents: IndexedDocumentRecord[], sortMode: SortMode): 
 }
 
 function groupLabel(
-  document: IndexedDocumentRecord,
+  document: SearchResultRecord,
   groupMode: GroupMode,
   folderById: Map<string, IndexedFolderRecord>,
 ): string {
@@ -115,13 +120,13 @@ function groupLabel(
 }
 
 function buildGroups(
-  documents: IndexedDocumentRecord[],
+  documents: SearchResultRecord[],
   groupMode: GroupMode,
   folderById: Map<string, IndexedFolderRecord>,
-): Array<{ label: string; documents: IndexedDocumentRecord[] }> {
+): Array<{ label: string; documents: SearchResultRecord[] }> {
   if (groupMode === "none") return [{ label: "Documents", documents }];
 
-  const groups = new Map<string, IndexedDocumentRecord[]>();
+  const groups = new Map<string, SearchResultRecord[]>();
   for (const document of documents) {
     const label = groupLabel(document, groupMode, folderById);
     const group = groups.get(label);
@@ -144,7 +149,7 @@ export function DocumentLibraryScreen() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [folders, setFolders] = useState<IndexedFolderRecord[]>([]);
-  const [documents, setDocuments] = useState<IndexedDocumentRecord[]>([]);
+  const [documents, setDocuments] = useState<SearchResultRecord[]>([]);
   const [searchText, setSearchText] = useState("");
   const [folderFilter, setFolderFilter] = useState("");
   const [extensionFilter, setExtensionFilter] = useState<"" | FileExtension>("");
@@ -542,7 +547,11 @@ export function DocumentLibraryScreen() {
                               ? "Could not extract searchable text. Open details for error."
                               : pathLabel(d)}
                           </span>
-                          {snippet ? <span className="doc-snippet">{snippet}</span> : null}
+                          {snippet && "html" in snippet
+                            ? <span className="doc-snippet" dangerouslySetInnerHTML={{ __html: snippet.html }} />
+                            : snippet && "text" in snippet
+                              ? <span className="doc-snippet">{snippet.text}</span>
+                              : null}
                         </div>
                         <div className="doc-meta">
                           <span>Modified {formatMetadataDate(d.modifiedAt)}</span>

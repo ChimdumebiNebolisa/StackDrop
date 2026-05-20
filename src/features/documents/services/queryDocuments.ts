@@ -1,4 +1,4 @@
-import type { DocumentQueryFilters, IndexedDocumentRecord } from "../../../domain/documents/types";
+import type { DocumentQueryFilters, SearchResultRecord } from "../../../domain/documents/types";
 import type { SqlClient } from "../../../data/db/sqliteClient";
 import { DocumentRepository } from "../../../data/repositories/documentRepository";
 import { DocumentSearchRepository } from "../../../data/search/documentSearchRepository";
@@ -7,10 +7,12 @@ export async function queryDocuments(
   client: SqlClient,
   searchText: string,
   filters: DocumentQueryFilters,
-): Promise<IndexedDocumentRecord[]> {
+): Promise<SearchResultRecord[]> {
   const trimmed = searchText.trim();
   if (trimmed.length === 0) {
-    return new DocumentRepository(client).listDocuments(filters);
+    const docs = await new DocumentRepository(client).listDocuments(filters);
+    return docs.map((d) => ({ ...d, searchSnippet: null }));
   }
-  return new DocumentSearchRepository(client).searchDocuments(trimmed, filters);
+  const searchFilters: DocumentQueryFilters = { ...filters, sort: "relevance" };
+  return new DocumentSearchRepository(client).searchDocuments(trimmed, searchFilters);
 }

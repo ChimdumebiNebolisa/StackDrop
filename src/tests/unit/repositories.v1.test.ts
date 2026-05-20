@@ -37,7 +37,7 @@ describe("v1 repositories", () => {
       extractedText: "hello world",
       updatedAt: now,
     });
-    await search.indexDocument(docId, "a.txt", "hello world");
+    await search.indexDocument(docId, "a.txt", "a.txt", "hello world");
     const hits = await search.searchDocuments("world", {});
     expect(hits.map((h) => h.id)).toContain(docId);
   });
