@@ -11,6 +11,12 @@ function formatParseStatus(status: IndexedDocumentRecord["parseStatus"]): string
   return "parse failed";
 }
 
+function formatFailureStage(stage: IndexedDocumentRecord["failureStage"]): string {
+  if (stage === "read") return "read failed";
+  if (stage === "parse") return "parser failed";
+  return "not recorded";
+}
+
 export function DocumentDetailScreen() {
   const { id } = useParams();
   const { client, loadState } = useAppData();
@@ -55,6 +61,12 @@ export function DocumentDetailScreen() {
         <dd>{new Date(doc.modifiedAt).toLocaleString()}</dd>
         <dt>Parse status</dt>
         <dd>{formatParseStatus(doc.parseStatus)}</dd>
+        {doc.parseStatus === "parse_failed" ? (
+          <>
+            <dt>Failure stage</dt>
+            <dd>{formatFailureStage(doc.failureStage)}</dd>
+          </>
+        ) : null}
         {doc.parseError ? (
           <>
             <dt>Parse error</dt>

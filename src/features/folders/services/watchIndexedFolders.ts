@@ -1,6 +1,7 @@
 import { watch, type UnwatchFn } from "@tauri-apps/plugin-fs";
 
 import type { IndexedFolderRecord } from "../../../domain/documents/types";
+import { logScanSummary } from "../../../lib/log";
 import { invokeDiscoverSupportedFiles } from "./tauriFolderFs";
 
 interface WatchOptions {
@@ -62,10 +63,20 @@ export async function watchIndexedFolders(
   const unwatchers: UnwatchFn[] = [];
   const pollTimers: ReturnType<typeof setInterval>[] = [];
   const rescanTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let stopped = false;
+
+  logScanSummary("watch_start", { rootCount: folders.length });
 
   for (const folder of folders) {
-    let lastSignature = await folderSignature(folder.rootPath);
+    let lastSignature: string | null = null;
     let pollInFlight = false;
+
+    void folderSignature(folder.rootPath).then((nextSignature) => {
+      if (!stopped && nextSignature !== null && lastSignature === null) {
+        lastSignature = nextSignature;
+      }
+    });
+
     const pollTimer = setInterval(() => {
       if (pollInFlight) return;
       pollInFlight = true;
@@ -102,7 +113,10 @@ export async function watchIndexedFolders(
     unwatchers.push(unwatch);
   }
 
+  logScanSummary("watch_ready", { rootCount: folders.length });
+
   return async () => {
+    stopped = true;
     for (const timer of rescanTimers.values()) {
       clearTimeout(timer);
     }

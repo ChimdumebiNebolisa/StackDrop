@@ -2,11 +2,15 @@ export type FileExtension = "txt" | "pdf" | "docx" | "doc";
 
 export type ParseStatus = "parsed_text" | "parsed_ocr" | "parse_failed";
 
+export type FailureStage = "read" | "parse";
+
 export interface IndexedFolderRecord {
   id: string;
   rootPath: string;
   createdAt: string;
   lastScanAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
 }
 
 export interface IndexedDocumentRecord {
@@ -19,6 +23,7 @@ export interface IndexedDocumentRecord {
   sizeBytes: number;
   modifiedAt: string;
   parseStatus: ParseStatus;
+  failureStage: FailureStage | null;
   parseError: string | null;
   extractedText: string | null;
   updatedAt: string;

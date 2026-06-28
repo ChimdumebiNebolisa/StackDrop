@@ -78,13 +78,14 @@ export async function migrateIndexedDocumentsSchema(client: SqlClient): Promise<
     size_bytes INTEGER NOT NULL,
     modified_at TEXT NOT NULL,
     parse_status TEXT NOT NULL CHECK (parse_status IN ('parsed_text', 'parsed_ocr', 'parse_failed')),
+    failure_stage TEXT CHECK (failure_stage IN ('read', 'parse')),
     parse_error TEXT,
     extracted_text TEXT,
     updated_at TEXT NOT NULL
   )`);
   await client.execute(`INSERT INTO indexed_documents__mig (
     id, folder_id, absolute_path, relative_path, file_name, file_extension,
-    size_bytes, modified_at, parse_status, parse_error, extracted_text, updated_at
+    size_bytes, modified_at, parse_status, failure_stage, parse_error, extracted_text, updated_at
   )
   SELECT
     id,
@@ -100,6 +101,7 @@ export async function migrateIndexedDocumentsSchema(client: SqlClient): Promise<
       WHEN parse_status = 'failed' THEN 'parse_failed'
       ELSE parse_status
     END AS parse_status,
+    NULL AS failure_stage,
     parse_error,
     extracted_text,
     updated_at
@@ -133,6 +135,32 @@ async function migrateFtsSchemaV2(client: SqlClient): Promise<void> {
     WHERE parse_status IN ('parsed_text', 'parsed_ocr')`);
 }
 
+async function tableHasColumn(client: SqlClient, tableName: string, columnName: string): Promise<boolean> {
+  const rows = await client.select<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  return rows.some((row) => row.name === columnName);
+}
+
+async function addColumnIfMissing(
+  client: SqlClient,
+  tableName: string,
+  columnName: string,
+  columnSql: string,
+): Promise<void> {
+  if (await tableHasColumn(client, tableName, columnName)) return;
+  await client.execute(`ALTER TABLE ${tableName} ADD COLUMN ${columnSql}`);
+}
+
+async function migrateDiagnosticsColumns(client: SqlClient): Promise<void> {
+  await addColumnIfMissing(client, "indexed_folders", "last_error", "last_error TEXT");
+  await addColumnIfMissing(client, "indexed_folders", "last_error_at", "last_error_at TEXT");
+  await addColumnIfMissing(
+    client,
+    "indexed_documents",
+    "failure_stage",
+    "failure_stage TEXT CHECK (failure_stage IN ('read', 'parse'))",
+  );
+}
+
 export async function runMigrations(client?: SqlClient): Promise<void> {
   const db = client ?? (await getAppSqlClient());
   await dropLegacyV0IfPresent(db);
@@ -141,5 +169,6 @@ export async function runMigrations(client?: SqlClient): Promise<void> {
     await db.execute(statement);
   }
   await migrateIndexedDocumentsSchema(db);
+  await migrateDiagnosticsColumns(db);
   await migrateFtsSchemaV2(db);
 }

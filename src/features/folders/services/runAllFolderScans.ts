@@ -3,6 +3,8 @@ import { FolderRepository } from "../../../data/repositories/folderRepository";
 import { logScanSummary } from "../../../lib/log";
 import { runFolderScan } from "./runFolderScan";
 
+const DEFAULT_ROOT_SCAN_TIMEOUT_MS = 120_000;
+
 export interface LibraryScanSummary {
   rootsTotal: number;
   rootsCompleted: number;
@@ -12,9 +14,45 @@ export interface LibraryScanSummary {
   errors: string[];
 }
 
+export interface LibraryScanOptions {
+  rootTimeoutMs?: number;
+}
+
+function scanWithTimeout<T>(
+  scan: Promise<T>,
+  timeoutMs: number,
+  onTimeout: (error: Error) => Promise<void> | void,
+): Promise<T> {
+  if (timeoutMs <= 0) return scan;
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let timedOut = false;
+
+  return new Promise<T>((resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      const error = new Error(`Root scan timed out after ${Math.ceil(timeoutMs / 1000)} seconds.`);
+      void Promise.resolve(onTimeout(error)).finally(() => reject(error));
+    }, timeoutMs);
+
+    scan.then(
+      (value) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!timedOut) resolve(value);
+      },
+      (error) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!timedOut) reject(error);
+      },
+    );
+  });
+}
+
 /** Runs `runFolderScan` for every registered root, in order. */
-export async function runAllFolderScans(client: SqlClient): Promise<LibraryScanSummary> {
-  const folders = await new FolderRepository(client).listFolders();
+export async function runAllFolderScans(client: SqlClient, options: LibraryScanOptions = {}): Promise<LibraryScanSummary> {
+  const folderRepo = new FolderRepository(client);
+  const folders = await folderRepo.listFolders();
+  const rootTimeoutMs = options.rootTimeoutMs ?? DEFAULT_ROOT_SCAN_TIMEOUT_MS;
   let discovered = 0;
   let indexed = 0;
   let failed = 0;
@@ -22,13 +60,22 @@ export async function runAllFolderScans(client: SqlClient): Promise<LibraryScanS
   let rootsCompleted = 0;
 
   for (const folder of folders) {
+    const controller = new AbortController();
     try {
-      const summary = await runFolderScan(folder.id, client);
+      const summary = await scanWithTimeout(
+        runFolderScan(folder.id, client, { signal: controller.signal }),
+        rootTimeoutMs,
+        (error) => {
+          controller.abort(error);
+          return folderRepo.updateScanError(folder.id, error.message, new Date().toISOString());
+        },
+      );
       discovered += summary.discovered;
       indexed += summary.indexed;
       failed += summary.failed;
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${folder.rootPath}: ${message}`);
     }
     rootsCompleted += 1;
   }

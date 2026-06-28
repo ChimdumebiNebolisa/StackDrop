@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -16,6 +16,8 @@ use crate::path_utils::{
     assert_path_within_root, normalize_selected_folder_path, path_for_frontend,
     read_file_bytes_under_root as read_bytes_checked,
 };
+
+const DISCOVER_SUPPORTED_FILES_MAX_DURATION: Duration = Duration::from_secs(120);
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +52,13 @@ pub async fn open_folder_dialog(app: AppHandle) -> Result<Option<String>, String
 
 #[tauri::command]
 pub fn discover_supported_files(root_path: String) -> Result<Vec<DiscoveredFileDto>, String> {
+    discover_supported_files_with_limit(root_path, DISCOVER_SUPPORTED_FILES_MAX_DURATION)
+}
+
+fn discover_supported_files_with_limit(
+    root_path: String,
+    max_duration: Duration,
+) -> Result<Vec<DiscoveredFileDto>, String> {
     let trimmed = root_path.trim();
     if trimmed.is_empty() {
         return Err("Root path is empty.".to_string());
@@ -61,7 +70,14 @@ pub fn discover_supported_files(root_path: String) -> Result<Vec<DiscoveredFileD
     }
 
     let mut out: Vec<DiscoveredFileDto> = Vec::new();
+    let started = Instant::now();
     for entry in WalkDir::new(&root_canon).follow_links(false) {
+        if started.elapsed() >= max_duration {
+            return Err(format!(
+                "Discovery timed out after {} seconds.",
+                max_duration.as_secs()
+            ));
+        }
         let entry = entry.map_err(|e| e.to_string())?;
         if !entry.file_type().is_file() {
             continue;
@@ -530,6 +546,21 @@ mod discover_tests {
         assert_eq!(list.len(), 2);
         assert!(list.iter().any(|f| f.extension == "docx"));
         assert!(list.iter().any(|f| f.extension == "doc"));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn discovery_limit_returns_root_error_before_listing() {
+        let root = std::env::temp_dir().join("stackdrop_discover_timeout");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::File::create(root.join("a.txt")).unwrap();
+
+        let err =
+            discover_supported_files_with_limit(root.to_string_lossy().to_string(), Duration::ZERO)
+                .unwrap_err();
+        assert!(err.contains("Discovery timed out"));
 
         let _ = std::fs::remove_dir_all(&root);
     }

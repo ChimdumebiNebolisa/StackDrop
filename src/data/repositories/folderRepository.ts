@@ -6,6 +6,8 @@ interface FolderRow {
   root_path: string;
   created_at: string;
   last_scan_at: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
 }
 
 function mapRow(row: FolderRow): IndexedFolderRecord {
@@ -14,6 +16,8 @@ function mapRow(row: FolderRow): IndexedFolderRecord {
     rootPath: row.root_path,
     createdAt: row.created_at,
     lastScanAt: row.last_scan_at,
+    lastError: row.last_error,
+    lastErrorAt: row.last_error_at,
   };
 }
 
@@ -44,6 +48,16 @@ export class FolderRepository {
   }
 
   async updateLastScan(id: string, lastScanAt: string): Promise<void> {
-    await this.client.execute("UPDATE indexed_folders SET last_scan_at = ? WHERE id = ?", [lastScanAt, id]);
+    await this.client.execute(
+      "UPDATE indexed_folders SET last_scan_at = ?, last_error = NULL, last_error_at = NULL WHERE id = ?",
+      [lastScanAt, id],
+    );
+  }
+
+  async updateScanError(id: string, message: string, occurredAt: string): Promise<void> {
+    await this.client.execute(
+      "UPDATE indexed_folders SET last_error = ?, last_error_at = ? WHERE id = ?",
+      [message, occurredAt, id],
+    );
   }
 }

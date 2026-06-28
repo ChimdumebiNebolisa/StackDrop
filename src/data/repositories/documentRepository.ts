@@ -1,4 +1,10 @@
-import type { DocumentQueryFilters, FileExtension, IndexedDocumentRecord, ParseStatus } from "../../domain/documents/types";
+import type {
+  DocumentQueryFilters,
+  FailureStage,
+  FileExtension,
+  IndexedDocumentRecord,
+  ParseStatus,
+} from "../../domain/documents/types";
 import type { SqlClient } from "../db/sqliteClient";
 
 interface DocumentRow {
@@ -11,6 +17,7 @@ interface DocumentRow {
   size_bytes: number;
   modified_at: string;
   parse_status: ParseStatus;
+  failure_stage: FailureStage | null;
   parse_error: string | null;
   extracted_text: string | null;
   updated_at: string;
@@ -27,6 +34,7 @@ function mapRow(row: DocumentRow): IndexedDocumentRecord {
     sizeBytes: row.size_bytes,
     modifiedAt: row.modified_at,
     parseStatus: row.parse_status,
+    failureStage: row.failure_stage,
     parseError: row.parse_error,
     extractedText: row.extracted_text,
     updatedAt: row.updated_at,
@@ -43,6 +51,7 @@ export interface DocumentUpsertInput {
   sizeBytes: number;
   modifiedAt: string;
   parseStatus: ParseStatus;
+  failureStage?: FailureStage | null;
   parseError: string | null;
   extractedText: string | null;
   updatedAt: string;
@@ -55,8 +64,8 @@ export class DocumentRepository {
     await this.client.execute(
       `INSERT INTO indexed_documents (
         id, folder_id, absolute_path, relative_path, file_name, file_extension,
-        size_bytes, modified_at, parse_status, parse_error, extracted_text, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        size_bytes, modified_at, parse_status, failure_stage, parse_error, extracted_text, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(absolute_path) DO UPDATE SET
         folder_id = excluded.folder_id,
         relative_path = excluded.relative_path,
@@ -65,6 +74,7 @@ export class DocumentRepository {
         size_bytes = excluded.size_bytes,
         modified_at = excluded.modified_at,
         parse_status = excluded.parse_status,
+        failure_stage = excluded.failure_stage,
         parse_error = excluded.parse_error,
         extracted_text = excluded.extracted_text,
         updated_at = excluded.updated_at`,
@@ -78,6 +88,7 @@ export class DocumentRepository {
         input.sizeBytes,
         input.modifiedAt,
         input.parseStatus,
+        input.failureStage ?? null,
         input.parseError,
         input.extractedText,
         input.updatedAt,

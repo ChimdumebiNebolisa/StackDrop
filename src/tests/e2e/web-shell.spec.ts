@@ -20,6 +20,7 @@ interface ShimFile {
   bytes: number[];
   ocrText?: string;
   docText?: string;
+  readError?: string;
 }
 
 function fixtureBytes(name: string): number[] {
@@ -73,6 +74,7 @@ declare global {
       modifyTxt: (name: string, text: string) => void;
       deleteFile: (name: string) => void;
       renameFile: (oldName: string, newName: string) => void;
+      setDiscoverError: (message: string | null) => void;
       listFileNames: () => string[];
     };
   }
@@ -94,6 +96,7 @@ async function installFeatureShim(
     const normalize = (path: string) => path.replaceAll("/", "\\");
     const files = [...init.files];
     const watchers: Array<(rootPath: string) => void> = [];
+    let discoverError: string | null = null;
 
     const fireDirty = (rootPath: string) => {
       for (const cb of watchers) cb(rootPath);
@@ -105,20 +108,26 @@ async function installFeatureShim(
     window.__STACKDROP_E2E__ = {
       defaultDocumentRoots: () => [...init.defaultRoots],
       pickFolder: () => init.pickFolder,
-      discoverSupportedFiles: (rootPath: string) => [
-        ...files
-          .filter((f) => normalize(f.absolutePath).startsWith(normalize(rootPath)))
-          .map(({ absolutePath, relativePath, fileName, extension, sizeBytes, modifiedAtMs }) => ({
-            absolutePath,
-            relativePath,
-            fileName,
-            extension,
-            sizeBytes,
-            modifiedAtMs,
-          })),
-      ],
+      discoverSupportedFiles: (rootPath: string) => {
+        if (discoverError) throw new Error(discoverError);
+        return [
+          ...files
+            .filter((f) => normalize(f.absolutePath).startsWith(normalize(rootPath)))
+            .map(({ absolutePath, relativePath, fileName, extension, sizeBytes, modifiedAtMs }) => ({
+              absolutePath,
+              relativePath,
+              fileName,
+              extension,
+              sizeBytes,
+              modifiedAtMs,
+            })),
+        ];
+      },
       readFileUnderRoot: (_root: string, absolutePath: string) => {
         const hit = byAbsolutePath(absolutePath);
+        if (hit?.readError) {
+          throw new Error(hit.readError);
+        }
         return hit ? hit.bytes : null;
       },
       ocrPdfTextUnderRoot: (_root: string, absolutePath: string) => {
@@ -176,6 +185,9 @@ async function installFeatureShim(
         file.absolutePath = `${init.rootPath}\\${newName}`;
         file.modifiedAtMs = Date.now();
       },
+      setDiscoverError: (message: string | null) => {
+        discoverError = message;
+      },
       listFileNames: () => files.map((f) => f.fileName),
     };
   }, payload);
@@ -183,7 +195,7 @@ async function installFeatureShim(
 
 function documentLink(page: Page, fileName: string) {
   const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return page.getByRole("link", { name: new RegExp(escaped) });
+  return page.getByTestId("document-list").getByRole("link", { name: new RegExp(escaped) });
 }
 
 test("loads StackDrop branding and library shell", async ({ page }) => {
@@ -249,15 +261,15 @@ test("indexes all supported file fixtures and validates parse statuses", async (
   await page.getByLabel("Filter by parse status").selectOption("");
   await page.getByLabel("Group documents").selectOption("none");
 
-  await page.getByRole("link", { name: /text-layer\.pdf/ }).click();
+  await documentLink(page, "text-layer.pdf").click();
   await expect(page.locator("dl.meta-grid")).toContainText("parsed text");
   await page.getByRole("link", { name: "← Back" }).click();
 
-  await page.getByRole("link", { name: /scanned-image-only\.pdf/ }).click();
+  await documentLink(page, "scanned-image-only.pdf").click();
   await expect(page.locator("dl.meta-grid")).toContainText("parsed OCR");
   await page.getByRole("link", { name: "← Back" }).click();
 
-  await page.getByRole("link", { name: /broken\.doc/ }).click();
+  await documentLink(page, "broken.doc").click();
   await expect(page.locator("dl.meta-grid")).toContainText("parse failed");
   await expect(page.getByText("Parse error")).toBeVisible();
 });
@@ -331,7 +343,9 @@ test("default roots fallback and manual Add folder flow still works", async ({ p
   await page.goto("/");
   await expect(page.getByText("0 indexed locations")).toBeVisible();
   await page.getByLabel("Index controls").getByRole("button", { name: "Add folder" }).click();
-  await expect(page.locator(".folder-path", { hasText: ROOT_PATH })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "Locations" }).locator(".folder-path", { hasText: ROOT_PATH })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByRole("heading", { name: /Known limitations/i })).toHaveCount(0);
 });
 
@@ -345,6 +359,44 @@ test("search snippet visible for content match", async ({ page }) => {
   await expect(page.locator(".doc-snippet")).toBeVisible({ timeout: 5_000 });
   const snippetHtml = await page.locator(".doc-snippet").innerHTML();
   expect(snippetHtml).toContain("<mark>");
+});
+
+test("read failures are labeled and failed rescans refresh diagnostics", async ({ page }) => {
+  const files: ShimFile[] = [
+    {
+      absolutePath: `${ROOT_PATH}\\normal.txt`,
+      relativePath: "normal.txt",
+      fileName: "normal.txt",
+      extension: "txt",
+      sizeBytes: 20,
+      modifiedAtMs: Date.now(),
+      bytes: Array.from(new TextEncoder().encode("NORMAL_TOKEN_20260627")),
+    },
+    {
+      absolutePath: `${ROOT_PATH}\\large-over-50mb.txt`,
+      relativePath: "large-over-50mb.txt",
+      fileName: "large-over-50mb.txt",
+      extension: "txt",
+      sizeBytes: 52_428_801,
+      modifiedAtMs: Date.now(),
+      bytes: [],
+      readError: "File exceeds maximum read size of 52428800 bytes.",
+    },
+  ];
+  await installFeatureShim(page, { files });
+  await page.goto("/");
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "normal.txt")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByLabel("Search documents").fill("large-over-50mb");
+  const largeResultRow = page.locator(".doc-row", { hasText: "large-over-50mb.txt" });
+  await expect(largeResultRow).toBeVisible();
+  await expect(largeResultRow).toContainText("Read failure");
+
+  await page.evaluate(() => window.__STACKDROP_E2E_TEST__?.setDiscoverError("root unavailable"));
+  await page.getByRole("button", { name: "Re-scan" }).click();
+  await expect(page.getByText("Root issues").locator("..")).toContainText("1", { timeout: 15_000 });
+  await expect(page.getByText("Root error: root unavailable")).toBeVisible();
 });
 
 test("relevance sort: filename match ranks above body match", async ({ page }) => {
@@ -390,7 +442,7 @@ test("proof screenshots — library, search, and detail", async ({ page }) => {
   await page.screenshot({ path: "docs/proof-screenshots/02-search-by-title.png", fullPage: true });
   await page.getByLabel("Search documents").fill(OCR_TOKEN);
   await page.screenshot({ path: "docs/proof-screenshots/03-search-by-content.png", fullPage: true });
-  await page.getByRole("link", { name: /scanned-image-only\.pdf/ }).click();
+  await documentLink(page, "scanned-image-only.pdf").click();
   await expect(page.getByRole("heading", { name: "scanned-image-only.pdf" })).toBeVisible();
   await page.screenshot({ path: "docs/proof-screenshots/04-document-detail.png", fullPage: true });
 });

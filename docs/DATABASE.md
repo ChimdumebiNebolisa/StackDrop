@@ -12,6 +12,7 @@ Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime
 | `root_path` | Canonical absolute path; **UNIQUE** (duplicate roots rejected at insert) |
 | `created_at` | ISO timestamp |
 | `last_scan_at` | Last completed scan for this root (nullable until first scan) |
+| `last_error`, `last_error_at` | Last root-level scan error and timestamp; cleared after a successful scan |
 
 ### `indexed_documents`
 
@@ -25,6 +26,7 @@ Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime
 | `file_extension` | `txt` \| `pdf` \| `docx` \| `doc` — enforced with `CHECK` |
 | `size_bytes`, `modified_at` | Filesystem metadata at scan time |
 | `parse_status` | `parsed_text` \| `parsed_ocr` \| `parse_failed` |
+| `failure_stage` | Nullable failure classifier: `read` for byte-read failures, `parse` for parser/OCR/extractor failures |
 | `parse_error` | Populated when parse/read fails |
 | `extracted_text` | Plain text used for preview + FTS body when indexed |
 | `updated_at` | Last upsert time |
@@ -58,6 +60,12 @@ Per-folder run: `started_at`, `finished_at`, counters `files_discovered`, `files
 
 `migrateFtsSchemaV2` detects the old 2-column FTS table and rebuilds it with the 3-column schema (`file_name`, `relative_path`, `body`), repopulating from `indexed_documents`.
 
+`migrateDiagnosticsColumns` adds nullable diagnostics columns for existing databases:
+
+- `indexed_folders.last_error`
+- `indexed_folders.last_error_at`
+- `indexed_documents.failure_stage`
+
 ## Duplicate handling
 
 - **Same file path:** `absolute_path` is `UNIQUE`; upserts update the existing row.
@@ -69,4 +77,6 @@ After each scan, `deleteDocumentsNotInPaths` removes DB + FTS rows for files no 
 
 ## Transactions
 
-`runFolderScan` wraps DB writes (scan run row, per-file upserts, prune, scan run finish, folder `last_scan_at`) in a single SQLite `BEGIN` / `COMMIT` / `ROLLBACK` transaction via [`withTransaction`](../src/lib/db/withTransaction.ts) so a mid-scan failure does not leave a half-updated index for that pass.
+`runFolderScan` records the scan run before per-file work, commits each file result as it is handled, and finalizes the scan run in `finally` for handled read/parse failures and timeouts. This prevents one stuck file from leaving the UI in `Scanning...` with an open scan row. Pruning removed files runs only after discovery and the per-file loop complete, so an unavailable/problematic root does not wipe existing indexed results.
+
+Repository helpers still use [`withTransaction`](../src/lib/db/withTransaction.ts) where atomic multi-statement updates are required.

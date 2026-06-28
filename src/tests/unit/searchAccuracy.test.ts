@@ -122,6 +122,23 @@ describe("search accuracy improvements", () => {
       const hits = await queryDocuments(client, "notes.txt", {});
       expect(hits[0].fileName).toBe("notes.txt");
     });
+
+    it("case-insensitive exact filename match ranks first", async () => {
+      await indexDoc({
+        fileName: "Quarterly Report.txt",
+        relativePath: "reports/Quarterly Report.txt",
+        body: "unrelated content",
+      });
+      await indexDoc({
+        fileName: "archive.txt",
+        relativePath: "archive.txt",
+        body: "quarterly report txt quarterly report txt quarterly report txt",
+      });
+
+      const hits = await queryDocuments(client, "quarterly report.txt", {});
+      expect(hits.length).toBeGreaterThanOrEqual(2);
+      expect(hits[0].fileName).toBe("Quarterly Report.txt");
+    });
   });
 
   describe("relative path search", () => {
@@ -170,9 +187,15 @@ describe("search accuracy improvements", () => {
   });
 
   describe("unsafe input handling", () => {
-    it("does not crash on special characters", async () => {
+    it("punctuation-only search returns no matches", async () => {
+      await indexDoc({
+        fileName: "visible.txt",
+        relativePath: "visible.txt",
+        body: "content that should not appear for punctuation only",
+      });
+
       const hits = await queryDocuments(client, '@#$%^&*()"\'', {});
-      expect(hits).toBeInstanceOf(Array);
+      expect(hits).toEqual([]);
     });
 
     it("does not crash on empty quotes", async () => {
@@ -188,6 +211,37 @@ describe("search accuracy improvements", () => {
       });
       const hits = await queryDocuments(client, "a", {});
       expect(hits).toBeInstanceOf(Array);
+    });
+  });
+
+  describe("filename and path fallback", () => {
+    it("finds filename substrings when FTS token search has no matches", async () => {
+      const id = await indexDoc({
+        fileName: "invoice2024.txt",
+        relativePath: "finance/invoice2024.txt",
+        body: "plain body content",
+      });
+
+      const hits = await queryDocuments(client, "voice2024", {});
+      expect(hits.map((h) => h.id)).toContain(id);
+      expect(hits[0].searchSnippet).toBeNull();
+    });
+
+    it("preserves folder filters for filename substring fallback", async () => {
+      const otherFolderId = crypto.randomUUID();
+      await new FolderRepository(client).insertFolder({
+        id: otherFolderId,
+        rootPath: "/tmp/other-root",
+        createdAt: new Date().toISOString(),
+      });
+      await indexDoc({
+        fileName: "invoice2024.txt",
+        relativePath: "finance/invoice2024.txt",
+        body: "plain body content",
+      });
+
+      const hits = await queryDocuments(client, "voice2024", { folderId: otherFolderId });
+      expect(hits).toEqual([]);
     });
   });
 

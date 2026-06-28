@@ -552,6 +552,11 @@ summary:focus-visible {
   border-color: var(--color-danger-border);
 }
 
+.badge--neutral {
+  color: var(--color-ash-slate);
+  background: var(--color-canvas-fog);
+}
+
 /* ── Result rows (design.md §10.5) ──────────────────────────── */
 
 .doc-list {
@@ -730,6 +735,7 @@ summary:focus-visible {
 }
 
 .locations-panel,
+.diagnostics-panel,
 .settings-panel,
 .about-panel {
   border: 1px solid var(--color-ghost-gray);
@@ -748,6 +754,7 @@ summary:focus-visible {
 }
 
 .locations-panel h2,
+.diagnostics-panel h2,
 .settings-panel h2,
 .about-panel h2 {
   margin: 0 0 var(--spacing-4);
@@ -758,9 +765,135 @@ summary:focus-visible {
 }
 
 .locations-panel .muted,
+.diagnostics-panel .muted,
 .settings-panel .muted,
 .about-panel .muted {
   margin: 0 0 var(--spacing-4);
+}
+
+.diagnostics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-8);
+  margin-bottom: var(--spacing-12);
+}
+
+.diagnostic-stat {
+  border: 1px solid var(--color-ghost-gray);
+  border-radius: 8px;
+  padding: var(--spacing-12);
+}
+
+.diagnostic-stat span {
+  display: block;
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+}
+
+.diagnostic-stat strong {
+  display: block;
+  color: var(--color-midnight-ink);
+  font-size: var(--text-subheading);
+  line-height: var(--leading-tight);
+  margin-top: var(--spacing-4);
+}
+
+.diagnostics-note {
+  margin: 0 0 var(--spacing-12);
+  color: var(--color-ash-slate);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.diagnostic-folder-list,
+.recent-failures ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.diagnostic-folder-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-16);
+  padding: var(--spacing-12) 0;
+  border-top: 1px solid var(--color-ghost-gray);
+}
+
+.diagnostic-folder-main {
+  min-width: 0;
+}
+
+.diagnostic-folder-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+}
+
+.diagnostic-folder-counts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: var(--spacing-4);
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+  text-align: right;
+}
+
+.diagnostic-error {
+  margin: var(--spacing-4) 0 0;
+  color: var(--color-danger-text);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.recent-failures {
+  margin-top: var(--spacing-16);
+  padding-top: var(--spacing-12);
+  border-top: 1px solid var(--color-ghost-gray);
+}
+
+.recent-failures h3 {
+  margin: 0 0 var(--spacing-8);
+  color: var(--color-midnight-ink);
+  font-size: var(--text-body);
+}
+
+.recent-failures li {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) max-content minmax(220px, 1.5fr);
+  gap: var(--spacing-12);
+  padding: var(--spacing-8) 0;
+  border-top: 1px solid var(--color-ghost-gray);
+  color: var(--color-ash-slate);
+  font-size: var(--text-small);
+}
+
+.recent-failures li:first-child {
+  border-top: none;
+}
+
+.recent-failures a {
+  color: var(--color-midnight-ink);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.recent-failures a:hover {
+  text-decoration: underline;
+}
+
+.recent-failures small {
+  overflow: hidden;
+  color: var(--color-ash-slate);
+  font-size: var(--text-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .folder-list {
@@ -1099,6 +1232,8 @@ summary:focus-visible {
   }
 
   .doc-link,
+  .diagnostic-folder-row,
+  .recent-failures li,
   .folder-row,
   .section-heading-row,
   .settings-grid {
@@ -1108,6 +1243,11 @@ summary:focus-visible {
   }
 
   .doc-meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .diagnostic-folder-counts {
     align-items: flex-start;
     text-align: left;
   }

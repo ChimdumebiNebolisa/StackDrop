@@ -5,6 +5,7 @@ import { useAppData } from "../../../app/providers/AppDataProvider";
 import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus, SearchResultRecord } from "../../../domain/documents/types";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
 import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
+import { getIndexDiagnostics, type FolderHealthStatus, type IndexDiagnostics } from "../../folders/services/getIndexDiagnostics";
 import { listIndexedFolders } from "../../folders/services/listIndexedFolders";
 import { removeIndexedFolder } from "../../folders/services/removeIndexedFolder";
 import { runAllFolderScans, type LibraryScanSummary } from "../../folders/services/runAllFolderScans";
@@ -35,6 +36,13 @@ function summarizePhase(summary: LibraryScanSummary | null, phase: ScanPhase): s
 function formatParseStatusLabel(status: ParseStatus): string {
   if (status === "parsed_text") return "Parsed text";
   if (status === "parsed_ocr") return "Parsed OCR";
+  return "Parse failed";
+}
+
+function formatDocumentStatusLabel(document: IndexedDocumentRecord): string {
+  if (document.parseStatus !== "parse_failed") return formatParseStatusLabel(document.parseStatus);
+  if (document.failureStage === "read") return "Read failure";
+  if (document.failureStage === "parse") return "Parser failure";
   return "Parse failed";
 }
 
@@ -144,12 +152,33 @@ function validParseStatus(value: string | null): ParseStatus | "" {
   return "";
 }
 
+function formatFolderHealth(status: FolderHealthStatus): string {
+  if (status === "healthy") return "Healthy";
+  if (status === "never_scanned") return "Never scanned";
+  if (status === "has_failures") return "Has failures";
+  if (status === "scan_incomplete") return "Scan incomplete";
+  return "Root issue";
+}
+
+function diagnosticStatusClass(status: FolderHealthStatus): string {
+  if (status === "healthy") return "badge";
+  if (status === "never_scanned") return "badge badge--neutral";
+  return "badge badge--failed";
+}
+
+function formatFailureStageLabel(stage: SearchResultRecord["failureStage"]): string {
+  if (stage === "read") return "Read failure";
+  if (stage === "parse") return "Parser failure";
+  return "Failure details unavailable";
+}
+
 export function DocumentLibraryScreen() {
   const { client, loadState, bumpDataVersion, dataVersion } = useAppData();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [folders, setFolders] = useState<IndexedFolderRecord[]>([]);
   const [documents, setDocuments] = useState<SearchResultRecord[]>([]);
+  const [diagnostics, setDiagnostics] = useState<IndexDiagnostics | null>(null);
   const [searchText, setSearchText] = useState("");
   const [folderFilter, setFolderFilter] = useState("");
   const [extensionFilter, setExtensionFilter] = useState<"" | FileExtension>("");
@@ -212,6 +241,17 @@ export function DocumentLibraryScreen() {
 
   useEffect(() => {
     if (!client || loadState !== "ready") return;
+    let cancelled = false;
+    void getIndexDiagnostics(client).then((nextDiagnostics) => {
+      if (!cancelled) setDiagnostics(nextDiagnostics);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, loadState, dataVersion]);
+
+  useEffect(() => {
+    if (!client || loadState !== "ready") return;
     void queryDocuments(client, searchText, filters).then(setDocuments);
   }, [client, loadState, dataVersion, searchText, filters]);
 
@@ -249,7 +289,6 @@ export function DocumentLibraryScreen() {
         scanInFlight.current = true;
         autoScanInFlight.current.add(folder.id);
         void runFolderScan(folder.id, client)
-          .then(() => bumpDataVersion())
           .catch((watchErr) => {
             setError(watchErr instanceof Error ? `Auto-index failed: ${watchErr.message}` : "Auto-index failed.");
             setWatchState("error");
@@ -257,6 +296,7 @@ export function DocumentLibraryScreen() {
           .finally(() => {
             autoScanInFlight.current.delete(folder.id);
             scanInFlight.current = false;
+            bumpDataVersion();
           });
         return true;
       },
@@ -293,12 +333,12 @@ export function DocumentLibraryScreen() {
       setLastSummary(summary);
       const hasIssues = summary.failed > 0 || summary.errors.length > 0;
       setScanPhase(hasIssues ? "completed_with_errors" : "completed");
-      bumpDataVersion();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setScanPhase("completed_with_errors");
     } finally {
       scanInFlight.current = false;
+      bumpDataVersion();
     }
   };
 
@@ -314,12 +354,12 @@ export function DocumentLibraryScreen() {
         setBusy("Scanning new folder...");
         await runFolderScan(id, client);
       }
-      bumpDataVersion();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
       scanInFlight.current = false;
+      bumpDataVersion();
     }
   };
 
@@ -333,13 +373,13 @@ export function DocumentLibraryScreen() {
     try {
       await runFolderScan(folderId, client);
       setScanPhase("completed");
-      bumpDataVersion();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setScanPhase("completed_with_errors");
     } finally {
       setBusy(null);
       scanInFlight.current = false;
+      bumpDataVersion();
     }
   };
 
@@ -470,6 +510,103 @@ export function DocumentLibraryScreen() {
         ) : null}
       </section>
 
+      {diagnostics ? (
+        <section className="diagnostics-panel" id="diagnostics" aria-labelledby="diagnostics-heading">
+          <div className="section-heading-row">
+            <div>
+              <h2 id="diagnostics-heading">Index Diagnostics</h2>
+              <p className="muted">Current index health and recent failures.</p>
+            </div>
+          </div>
+          <div className="diagnostics-summary-grid" aria-label="Index health summary">
+            <div className="diagnostic-stat">
+              <span>Indexed folders</span>
+              <strong>{diagnostics.totals.indexedFolders}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Total documents</span>
+              <strong>{diagnostics.totals.totalDocuments}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Searchable</span>
+              <strong>{diagnostics.totals.searchableDocuments}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Parser failures</span>
+              <strong>{diagnostics.totals.parseFailures}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Read failures</span>
+              <strong>{diagnostics.totals.readFailures}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Unknown failures</span>
+              <strong>{diagnostics.totals.unknownFailures}</strong>
+            </div>
+            <div className="diagnostic-stat">
+              <span>Root issues</span>
+              <strong>{diagnostics.totals.rootErrors}</strong>
+            </div>
+          </div>
+          <p className="diagnostics-note">
+            Unsupported or skipped files are not tracked in the current index schema; unsupported extensions are filtered during discovery.
+          </p>
+          {diagnostics.folders.length === 0 ? (
+            <div className="empty-state-block empty-state-block--compact">
+              <h3>No indexed folders.</h3>
+              <p>Add a folder or index default locations to populate diagnostics.</p>
+            </div>
+          ) : (
+            <ul className="diagnostic-folder-list">
+              {diagnostics.folders.map((item) => {
+                const failedDocuments = item.parseFailures + item.readFailures + item.unknownFailures;
+                return (
+                  <li key={item.folder.id} className="diagnostic-folder-row">
+                    <div className="diagnostic-folder-main">
+                      <div className="diagnostic-folder-heading">
+                        <span className="folder-path" title={item.folder.rootPath}>
+                          {item.folder.rootPath}
+                        </span>
+                        <span className={diagnosticStatusClass(item.status)}>{formatFolderHealth(item.status)}</span>
+                      </div>
+                      <div className="folder-meta">
+                        Last scan: {formatDate(item.folder.lastScanAt)}
+                        {item.lastRun
+                          ? `; Last run: ${item.lastRun.filesDiscovered} found, ${item.lastRun.filesIndexed} indexed, ${item.lastRun.filesFailed} failed`
+                          : "; No scan run recorded"}
+                      </div>
+                      {item.folder.lastError ? (
+                        <p className="diagnostic-error">Root error: {item.folder.lastError}</p>
+                      ) : null}
+                    </div>
+                    <div className="diagnostic-folder-counts">
+                      <span>{item.searchableDocuments} searchable</span>
+                      <span>{failedDocuments} failed</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {diagnostics.recentFailures.length > 0 ? (
+            <div className="recent-failures">
+              <h3>Recent failures</h3>
+              <ul>
+                {diagnostics.recentFailures.map((failure) => (
+                  <li key={failure.id}>
+                    <Link to={`/documents/${failure.id}`} title={failure.absolutePath}>
+                      {failure.fileName}
+                    </Link>
+                    <span>{formatFailureStageLabel(failure.failureStage)}</span>
+                    <small>{failure.parseError ?? failure.relativePath}</small>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="arrange-toolbar" aria-label="Document arrangement controls">
         <div className="results-summary">
           <strong>{documents.length}</strong> result{documents.length !== 1 ? "s" : ""}
@@ -539,12 +676,14 @@ export function DocumentLibraryScreen() {
                         <div className="doc-row-main">
                           <div className="doc-badges">
                             <span className="badge">{d.fileExtension.toUpperCase()}</span>
-                            <span className={parseStatusBadgeClass(d.parseStatus)}>{formatParseStatusLabel(d.parseStatus)}</span>
+                            <span className={parseStatusBadgeClass(d.parseStatus)}>{formatDocumentStatusLabel(d)}</span>
                           </div>
                           <span className="doc-name">{d.fileName}</span>
                           <span className="doc-path">
                             {d.parseStatus === "parse_failed"
-                              ? "Could not extract searchable text. Open details for error."
+                              ? d.failureStage === "read"
+                                ? "Could not read file. Open details for error."
+                                : "Could not extract searchable text. Open details for error."
                               : pathLabel(d)}
                           </span>
                           {snippet && "html" in snippet

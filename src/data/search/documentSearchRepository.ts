@@ -12,6 +12,7 @@ interface SearchRow {
   size_bytes: number;
   modified_at: string;
   parse_status: string;
+  failure_stage: string | null;
   parse_error: string | null;
   extracted_text: string | null;
   updated_at: string;
@@ -58,6 +59,7 @@ function mapSearchRow(row: SearchRow): SearchResultRecord {
     sizeBytes: row.size_bytes,
     modifiedAt: row.modified_at,
     parseStatus: row.parse_status as IndexedDocumentRecord["parseStatus"],
+    failureStage: row.failure_stage as IndexedDocumentRecord["failureStage"],
     parseError: row.parse_error,
     extractedText: row.extracted_text,
     updatedAt: row.updated_at,
@@ -81,8 +83,10 @@ export class DocumentSearchRepository {
   }
 
   async searchDocuments(query: string, filters: DocumentQueryFilters = {}): Promise<SearchResultRecord[]> {
+    const trimmedQuery = query.trim();
     const ftsQuery = toFtsQuery(query);
     if (!ftsQuery) {
+      if (trimmedQuery.length > 0) return [];
       const docs = await new DocumentRepository(this.client).listDocuments(filters);
       return docs.map((d) => ({ ...d, searchSnippet: null }));
     }
@@ -104,11 +108,10 @@ export class DocumentSearchRepository {
     const extraSql = extraClauses.length > 0 ? ` AND ${extraClauses.join(" AND ")}` : "";
 
     const runFtsQuery = async (matchExpr: string, sort: "recent" | "relevance"): Promise<SearchResultRecord[]> => {
-      const trimmedQuery = query.trim();
       if (sort === "recent") {
         const params: unknown[] = [matchExpr, ...filterParams];
         const rows = await this.client.select<SearchRow>(
-          `SELECT d.*, snippet(document_search, 3, '<mark>', '</mark>', '…', 32) AS search_snippet
+          `SELECT d.*, snippet(document_search, 3, '<mark>', '</mark>', '...', 32) AS search_snippet
            FROM document_search s
            JOIN indexed_documents d ON s.document_id = d.id
            WHERE document_search MATCH ?${extraSql}
@@ -120,15 +123,28 @@ export class DocumentSearchRepository {
 
       const params: unknown[] = [matchExpr, ...filterParams, trimmedQuery];
       const rows = await this.client.select<SearchRow>(
-        `SELECT d.*, snippet(document_search, 3, '<mark>', '</mark>', '…', 32) AS search_snippet
+        `SELECT d.*, snippet(document_search, 3, '<mark>', '</mark>', '...', 32) AS search_snippet
          FROM document_search s
          JOIN indexed_documents d ON s.document_id = d.id
          WHERE document_search MATCH ?${extraSql}
          ORDER BY
-           CASE WHEN d.file_name = ? THEN 0 ELSE 1 END,
+           CASE WHEN LOWER(d.file_name) = LOWER(?) THEN 0 ELSE 1 END,
            bm25(document_search, 10.0, 5.0, 1.0),
            d.updated_at DESC`,
         params,
+      );
+      return rows.map(mapSearchRow);
+    };
+
+    const runFileNamePathFallback = async (): Promise<SearchResultRecord[]> => {
+      const likeParam = `%${trimmedQuery}%`;
+      const fallbackParams: unknown[] = [likeParam, likeParam, ...filterParams];
+      const rows = await this.client.select<SearchRow>(
+        `SELECT d.*, NULL AS search_snippet
+         FROM indexed_documents d
+         WHERE (d.file_name LIKE ? OR d.relative_path LIKE ?)${extraSql}
+         ORDER BY d.updated_at DESC`,
+        fallbackParams,
       );
       return rows.map(mapSearchRow);
     };
@@ -143,19 +159,12 @@ export class DocumentSearchRepository {
           results = await runFtsQuery(prefixQuery, sort);
         }
       }
+      if (results.length === 0) {
+        results = await runFileNamePathFallback();
+      }
       return results;
     } catch {
-      const trimmedQuery = query.trim();
-      const likeParam = `%${trimmedQuery}%`;
-      const fallbackParams: unknown[] = [likeParam, likeParam, ...filterParams];
-      const rows = await this.client.select<SearchRow>(
-        `SELECT d.*, NULL AS search_snippet
-         FROM indexed_documents d
-         WHERE (d.file_name LIKE ? OR d.relative_path LIKE ?)${extraSql}
-         ORDER BY d.updated_at DESC`,
-        fallbackParams,
-      );
-      return rows.map(mapSearchRow);
+      return runFileNamePathFallback();
     }
   }
 }

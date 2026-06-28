@@ -19,6 +19,9 @@ export function AppShell() {
           <Link to="/#locations" className="nav-link">
             Locations
           </Link>
+          <Link to="/#diagnostics" className="nav-link">
+            Diagnostics
+          </Link>
           <Link to="/?parseStatus=parse_failed#library" className="nav-link">
             Failed parses
           </Link>

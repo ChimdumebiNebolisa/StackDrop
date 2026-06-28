@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS indexed_folders (
   id TEXT PRIMARY KEY,
   root_path TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL,
-  last_scan_at TEXT
+  last_scan_at TEXT,
+  last_error TEXT,
+  last_error_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS indexed_documents (
@@ -17,6 +19,7 @@ CREATE TABLE IF NOT EXISTS indexed_documents (
   size_bytes INTEGER NOT NULL,
   modified_at TEXT NOT NULL,
   parse_status TEXT NOT NULL CHECK (parse_status IN ('parsed_text', 'parsed_ocr', 'parse_failed')),
+  failure_stage TEXT CHECK (failure_stage IN ('read', 'parse')),
   parse_error TEXT,
   extracted_text TEXT,
   updated_at TEXT NOT NULL
