@@ -11,6 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "smoke:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stackdrop-packaged-smoke.ps1",
+    "smoke:windows:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stackdrop-packaged-smoke.ps1 -Action setup",
+    "smoke:windows:mutate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stackdrop-packaged-smoke.ps1 -Action mutate",
+    "smoke:windows:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stackdrop-packaged-smoke.ps1 -Action clean",
     "setup:cloud-agent": "./scripts/setup-cloud-agent-env.sh",
     "tauri": "tauri"
   },
