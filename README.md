@@ -1,70 +1,122 @@
 # StackDrop
 
-StackDrop is a desktop app that lets you search your local documents by file name and document content.
+StackDrop is a local-first Windows desktop app for searching documents on your computer by filename, path, and extracted content.
 
-## For Users
+It is for people who want fast local document search without uploading files, creating an account, or syncing data to a cloud service.
 
-### Download for Windows
+## Install on Windows
 
-Download the latest Windows installer here:
+1. Open the [latest GitHub Release](https://github.com/ChimdumebiNebolisa/StackDrop/releases/latest).
+2. Download the Windows installer named like `StackDrop_*_x64-setup.exe`.
+3. Run the installer. The app is unsigned, so Windows may show a SmartScreen warning.
+4. Open StackDrop.
+5. Add a folder, or use the default document folders.
+6. Click **Index library**.
+7. Search by filename, folder path, or document content.
 
-https://github.com/ChimdumebiNebolisa/StackDrop/releases/latest
+MSI packages may also be attached to releases for managed install workflows, but the `.exe` installer is the normal user download.
 
-Open the `.exe` installer, follow the setup steps, then launch StackDrop.
+## What StackDrop Does
 
-### What StackDrop does
+- Indexes local folders such as Documents, Desktop, Downloads, and folders you add.
+- Searches supported documents by filename, relative path, and extracted text.
+- Ranks filename matches above path matches, and path matches above body matches.
+- Shows snippets for content matches when available.
+- Watches indexed folders while the app is open and can re-index changed files.
+- Shows index diagnostics, read/parser failures, scan progress, and partial scan status.
+- Keeps indexed data on this computer.
 
-- Searches documents on your computer
-- Indexes common folders like Documents, Desktop, and Downloads
-- Lets you add more folders
-- Searches inside supported files, not just file names
-- Ranks results by relevance (file name matches first, then path, then content)
-- Highlights matching text in search results
-- Works locally on your computer
-- Does not require an account
-- Does not upload your files to the cloud
-- Does not delete, rename, or move your files
+StackDrop does not require an account, does not upload files, and does not delete, rename, or move your documents.
 
-### Supported files
+## Supported Files
+
+StackDrop indexes these file types:
 
 - `.txt`
 - `.pdf`
 - `.docx`
 - `.doc`
 
-### Notes
+PDF text is extracted locally. Scanned PDFs may use bundled local OCR and can take longer. DOCX parsing uses local document text extraction. Legacy `.doc` files use a bundled local extraction tool when available.
 
-- Scanned PDFs may take longer because StackDrop can use local OCR.
-- Background indexing works while StackDrop is open.
-- The Windows installer is unsigned, so Windows may show a warning.
+Unsupported file types are skipped during discovery.
 
-## For Developers
+## Indexing and Diagnostics
 
-### Run locally
+The index controls show live progress while a scan is active, including the current folder or file, scan phase, discovered/indexed/failed counts, and elapsed time.
+
+Diagnostics explain:
+
+- whether each indexed folder is healthy, not yet scanned, partially scanned, or has a root issue
+- how many documents are searchable
+- read failures, when a file could not be read
+- parser failures, when content could not be extracted
+- partial scans, when StackDrop pauses a large root after the timeout to keep the app responsive
+
+Failed parses do not break filename or path search. Those files can still be found by name/path, but their content may not be searchable.
+
+If a scan pauses before all discovered files are processed, click **Re-scan this folder** or **Index library** to retry indexing. Re-scans prioritize files that were not indexed yet, but StackDrop does not currently store an exact resume cursor.
+
+## Known Limitations
+
+- Windows installers are currently unsigned.
+- Very large roots can take time to scan.
+- Partial scans preserve completed work but are retried on a later scan rather than resumed from an exact saved cursor.
+- Unsupported file types are skipped and are not counted in diagnostics.
+- Some PDFs, damaged documents, encrypted files, cloud placeholders, or permission-blocked files may fail read or parse.
+
+## Developer Setup
+
+Install dependencies:
 
 ```bash
-npm install
+npm ci
+```
+
+Run the web UI shell:
+
+```bash
+npm run dev:web
+```
+
+Run the full Tauri desktop app:
+
+```bash
 npm run dev
 ```
 
-### Test
+For web-only E2E/dev flows, set `VITE_E2E_SQLITE=1` so the browser shell uses the sql.js fallback instead of native Tauri plugins.
+
+## Verification
 
 ```bash
 npm run typecheck
 npm run test
+npm run test:e2e
 npm run build
+cd src-tauri
+cargo test
+cd ..
+git diff --check
 ```
 
-### Build the Windows installer
+## Build Installers Locally
 
 ```bash
 npm run tauri -- build
 ```
 
-Local build output is generated under:
+Installer outputs are generated under:
 
 ```text
-src-tauri/target/
+src-tauri/target/release/bundle/nsis/
+src-tauri/target/release/bundle/msi/
 ```
 
-That folder is created on your computer during build and is not committed to GitHub.
+Generated `target/` output and installers are local build artifacts and are not committed to GitHub.
+
+## Release Workflow
+
+GitHub Releases are the distribution path for normal users. A version tag such as `v2.1.3` builds Windows installers in GitHub Actions and attaches the NSIS `.exe` and MSI `.msi` artifacts to the release.
+
+See [docs/RELEASE.md](docs/RELEASE.md) for the release checklist.
