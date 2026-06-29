@@ -14,13 +14,16 @@
 
 The library screen now includes an **Index Diagnostics** panel near the index controls.
 
+- The index controls show live scan progress while indexing is active, including the current root, scan phase, discovered/indexed/failed counts, elapsed time, and current file name when the scanner is reading, parsing, or indexing a known file.
 - Shows indexed folder count, total indexed document rows, searchable documents, parser failures, read failures, unknown legacy failures, and root issues.
-- Shows each folder's health: healthy, never scanned, has failures, scan incomplete, or root issue.
+- Shows each folder's health: healthy, never scanned, has failures, scan incomplete, partial scan, or root issue.
 - Shows each folder's last scan time plus the latest recorded scan-run counts when available.
+- Derives partial scan state from a root timeout plus unprocessed discovered files. Timeout copy now explains that scanning paused to keep the app responsive, how many discovered files were indexed, how many were not processed, and that re-scan retries indexing with unindexed files prioritized.
 - Persists root-level scan failures on `indexed_folders.last_error` and clears them after a successful scan.
 - Refreshes diagnostics after successful and failed manual/watcher scans so root errors are visible without reload/navigation.
 - Records failed document stage in `indexed_documents.failure_stage` as `read` or `parse` for new failures.
 - Links recent failed documents to the detail screen, where failure stage and parse error are visible.
+- Explains that failed parses do not break filename/path search; parser failures mean content extraction failed, and read failures mean StackDrop could not read the file.
 - Unsupported/skipped file counts are still not tracked; discovery filters unsupported extensions before scan rows are written.
 
 ## Edge-Case Checklist
@@ -32,8 +35,8 @@ The library screen now includes an **Index Diagnostics** panel near the index co
 | File renamed | Old filename/path should be pruned; new filename/path should appear after rescan. | Full rescan prunes paths not in current discovery and inserts new path. | High | Keep regression test; manually verify watcher emits rename as expected. | Vitest added; Playwright shim covers rename. |
 | File moved within indexed root | Old relative path should disappear; new relative path should be searchable after rescan. | Treated as delete plus add because `absolute_path` changes. | High | Keep regression test; manually verify watcher behavior. | Vitest added. |
 | File deleted | DB row and FTS row should be removed after rescan. | `deleteDocumentsNotInPaths` removes both DB and FTS rows. | High | Keep existing regression coverage. | Existing Vitest and Playwright. |
-| Folder removed, unavailable, or too slow to discover | Existing index should not be wiped just because discovery failed or times out; UI should show a root-specific warning and continue later roots. | `discover_supported_files` errors before transaction/prune; packaged discovery has a two-minute timeout; full-library scan records folder `last_error`, reports a warning, and continues to later roots. | High | Re-run packaged smoke with an unavailable/problematic root. | Vitest added for preservation, timeout continuation, and root error; diagnostics tests added. |
-| File read or parser hangs after discovery | One bad file should not keep a root scan in `Scanning...`; scan run should finish, the file should be recorded as failed, and later files should continue. | Per-file reads and parser calls now have bounded timeouts. Timed-out reads/parses become staged failures, stale FTS is removed for that file, and `scan_runs.finished_at` is populated in `finally` for handled failures. | High | Keep timeout regressions and periodically rerun packaged corpus with corrupt/large files. | Vitest added for never-resolving read and parser promises; packaged smoke root rescan completed. |
+| Folder removed, unavailable, or too slow to discover | Existing index should not be wiped just because discovery failed or times out; UI should show a root-specific warning and continue later roots. | `discover_supported_files` errors before transaction/prune; packaged discovery has a two-minute timeout; full-library scan records folder `last_error`, reports a warning, and continues to later roots. Timeout rows with unprocessed files are shown as partial scans instead of broken roots. | High | Re-run packaged smoke with an unavailable/problematic root and confirm partial/root wording. | Vitest added for preservation, timeout continuation, partial scan derivation, and root error; diagnostics tests added. |
+| File read or parser hangs after discovery | One bad file should not keep a root scan in `Scanning...`; scan run should finish, the file should be recorded as failed, and later files should continue. | Per-file reads and parser calls now have bounded timeouts. Timed-out reads/parses become staged failures, stale FTS is removed for that file, and `scan_runs.finished_at` is populated in `finally` for handled failures. Active scans show root/phase/count/file progress. | High | Keep timeout regressions and periodically rerun packaged corpus with corrupt/large files. | Vitest added for never-resolving read and parser promises, progress callbacks, and re-scan priority; Playwright covers live progress. |
 | Unsupported file types | Unsupported files should be skipped, not reported as parse failures. | Rust discovery filters extensions to txt/pdf/docx/doc before scan rows exist; diagnostics explicitly says skipped counts are not tracked. | Low | Future additive skipped-file counter if users need this quantified. | Rust tests already cover extension filtering; diagnostics doc/UI notes gap. |
 | Corrupt supported files | File should appear with `parse_failed`, store `parse_error`, and be excluded from body FTS. | Parser errors are caught, stored with `failure_stage = 'parse'`, linked in recent failures, and shown on detail. | Medium | Keep recent-failures and detail coverage visible. | Existing PDF/DOC tests; diagnostics tests added. |
 | Empty files | Empty `.txt` should appear as parsed with no body snippet; search by body should not match. Empty PDF/DOC/DOCX may fail depending parser behavior. | `.txt` parser returns empty string and scan treats it as parsed text. | Low | Keep automated `.txt` coverage; document empty binary-doc behavior manually. | Vitest added for empty `.txt`. |
@@ -70,6 +73,8 @@ Run these in a Windows installed build, not only `npm run dev:web`. The fastest 
 4. Temporarily rename or disconnect an indexed root and confirm existing results remain with a clear root-specific warning.
 5. Add a folder containing a permission-denied subfolder and confirm the app behavior is understandable.
 6. Test a file larger than 50 MB and confirm it becomes a failed parse/read entry without stale content matches.
-7. Test OneDrive/Dropbox online-only files if available.
-8. Confirm bundled OCR and legacy `.doc` extraction work without relying on PATH-installed tools.
-9. Compare query behavior for exact filename, partial filename, path segment, punctuation-heavy, hyphenated, underscored, short, multi-word, and phrase-like searches.
+7. Confirm active scans show live progress rather than only `Scanning...`.
+8. If a large root hits the root timeout, confirm diagnostics show **Partial scan**, unprocessed count, raw technical details, and a re-scan action without implying a true cursor resume.
+9. Test OneDrive/Dropbox online-only files if available.
+10. Confirm bundled OCR and legacy `.doc` extraction work without relying on PATH-installed tools.
+11. Compare query behavior for exact filename, partial filename, path segment, punctuation-heavy, hyphenated, underscored, short, multi-word, and phrase-like searches.

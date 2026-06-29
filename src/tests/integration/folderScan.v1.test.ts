@@ -97,6 +97,41 @@ describe("folder scan orchestration", () => {
     expect(hits[0].parseStatus).toBe("parsed_text");
   });
 
+  it("reports live progress phases and counters during a folder scan", async () => {
+    const folderId = await addFixtureFolder();
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles).mockResolvedValue([
+      {
+        absolutePath: "C:\\fixture-root\\a.txt",
+        relativePath: "a.txt",
+        fileName: "a.txt",
+        extension: "txt",
+        sizeBytes: 12,
+        modifiedAtMs: Date.now(),
+      },
+    ]);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockResolvedValue(
+      new TextEncoder().encode("progress-token"),
+    );
+    const progress: Array<{ phase: string; discovered: number; indexed: number; failed: number; currentFileName?: string }> = [];
+
+    await runFolderScan(folderId, client, { onProgress: (next) => progress.push(next) });
+
+    expect(progress.map((item) => item.phase)).toEqual(
+      expect.arrayContaining(["discovering", "reading", "parsing", "indexing", "finalizing"]),
+    );
+    expect(progress.find((item) => item.phase === "reading")).toMatchObject({
+      discovered: 1,
+      indexed: 0,
+      failed: 0,
+      currentFileName: "a.txt",
+    });
+    expect(progress.find((item) => item.phase === "finalizing")).toMatchObject({
+      discovered: 1,
+      indexed: 1,
+      failed: 0,
+    });
+  });
+
   it("indexes docx and finds fixture token via content search", async () => {
     const folderId = await addFixtureFolder();
     const docxBytes = await readFile(join(process.cwd(), "src/tests/fixtures/minimal.docx"));
@@ -348,6 +383,52 @@ describe("folder scan orchestration", () => {
     const hits = await queryDocuments(client, "NEW_EDIT_TOKEN", {});
     expect(hits).toHaveLength(1);
     expect(hits[0].fileName).toBe("a.txt");
+  });
+
+  it("prioritizes unindexed files before unchanged rows on rescan", async () => {
+    const folderId = await addFixtureFolder();
+    const firstModifiedAtMs = Date.now();
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles)
+      .mockResolvedValueOnce([
+        {
+          absolutePath: "C:\\fixture-root\\old.txt",
+          relativePath: "old.txt",
+          fileName: "old.txt",
+          extension: "txt",
+          sizeBytes: 16,
+          modifiedAtMs: firstModifiedAtMs,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          absolutePath: "C:\\fixture-root\\old.txt",
+          relativePath: "old.txt",
+          fileName: "old.txt",
+          extension: "txt",
+          sizeBytes: 16,
+          modifiedAtMs: firstModifiedAtMs,
+        },
+        {
+          absolutePath: "C:\\fixture-root\\new.txt",
+          relativePath: "new.txt",
+          fileName: "new.txt",
+          extension: "txt",
+          sizeBytes: 16,
+          modifiedAtMs: firstModifiedAtMs,
+        },
+      ]);
+    const readOrder: string[] = [];
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockImplementation((_rootPath, absolutePath) => {
+      readOrder.push(absolutePath);
+      return Promise.resolve(new TextEncoder().encode(`content for ${absolutePath}`));
+    });
+
+    await runFolderScan(folderId, client);
+    readOrder.length = 0;
+    await runFolderScan(folderId, client);
+
+    expect(readOrder[0]).toBe("C:\\fixture-root\\new.txt");
+    expect(readOrder[1]).toBe("C:\\fixture-root\\old.txt");
   });
 
   it("removes stale filename/path rows when a file is renamed or moved within the root", async () => {

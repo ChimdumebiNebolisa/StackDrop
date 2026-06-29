@@ -62,8 +62,15 @@ declare global {
         extension: string;
         sizeBytes: number;
         modifiedAtMs: number;
-      }>;
-      readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null;
+      }> | Promise<Array<{
+        absolutePath: string;
+        relativePath: string;
+        fileName: string;
+        extension: string;
+        sizeBytes: number;
+        modifiedAtMs: number;
+      }>>;
+      readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null | Promise<Uint8Array | number[] | null>;
       ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
       extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
       watchFolders?: (paths: string[], onDirtyRoot: (rootPath: string) => void) => (() => void) | void;
@@ -82,13 +89,14 @@ declare global {
 
 async function installFeatureShim(
   page: Page,
-  options: { defaultRoots?: string[]; pickFolder?: string | null; files?: ShimFile[] } = {},
+  options: { defaultRoots?: string[]; pickFolder?: string | null; files?: ShimFile[]; readDelayMs?: number } = {},
 ) {
   const payload = {
     rootPath: ROOT_PATH,
     defaultRoots: options.defaultRoots ?? [ROOT_PATH],
     pickFolder: options.pickFolder ?? ROOT_PATH,
     files: options.files ?? buildShimFiles(ROOT_PATH),
+    readDelayMs: options.readDelayMs ?? 0,
   };
 
   await page.addInitScript((init) => {
@@ -123,7 +131,10 @@ async function installFeatureShim(
             })),
         ];
       },
-      readFileUnderRoot: (_root: string, absolutePath: string) => {
+      readFileUnderRoot: async (_root: string, absolutePath: string) => {
+        if (init.readDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, init.readDelayMs));
+        }
         const hit = byAbsolutePath(absolutePath);
         if (hit?.readError) {
           throw new Error(hit.readError);
@@ -274,6 +285,29 @@ test("indexes all supported file fixtures and validates parse statuses", async (
   await expect(page.getByText("Parse error")).toBeVisible();
 });
 
+test("active indexing shows live file progress", async ({ page }) => {
+  await installFeatureShim(page, {
+    readDelayMs: 1500,
+    files: [
+      {
+        absolutePath: `${ROOT_PATH}\\slow-progress.txt`,
+        relativePath: "slow-progress.txt",
+        fileName: "slow-progress.txt",
+        extension: "txt",
+        sizeBytes: 20,
+        modifiedAtMs: Date.now(),
+        bytes: Array.from(new TextEncoder().encode("SLOW_PROGRESS_TOKEN_20260628")),
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+
+  await expect(page.getByRole("status")).toContainText(/Reading slow-progress\.txt|Parsing slow-progress\.txt/, { timeout: 5_000 });
+  await expect(page.getByRole("status")).toContainText("0 indexed / 1 discovered");
+  await expect(documentLink(page, "slow-progress.txt")).toBeVisible({ timeout: 15_000 });
+});
+
 test("auto re-index watcher handles create/modify/delete/rename with debounce", async ({ page }) => {
   await installFeatureShim(page, {
     files: [
@@ -392,6 +426,8 @@ test("read failures are labeled and failed rescans refresh diagnostics", async (
   const largeResultRow = page.locator(".doc-row", { hasText: "large-over-50mb.txt" });
   await expect(largeResultRow).toBeVisible();
   await expect(largeResultRow).toContainText("Read failure");
+  await expect(page.getByText("Failed parses do not break filename or path search.")).toBeVisible();
+  await expect(page.getByText(/read failures mean the file could not be read/i)).toBeVisible();
 
   await page.evaluate(() => window.__STACKDROP_E2E_TEST__?.setDiscoverError("root unavailable"));
   await page.getByRole("button", { name: "Re-scan" }).click();

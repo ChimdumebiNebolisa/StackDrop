@@ -5,7 +5,7 @@ import { runMigrations } from "../../data/db/migrate";
 import type { SqlClient } from "../../data/db/sqliteClient";
 import { DocumentRepository } from "../../data/repositories/documentRepository";
 import { FolderRepository } from "../../data/repositories/folderRepository";
-import { getIndexDiagnostics } from "../../features/folders/services/getIndexDiagnostics";
+import { getIndexDiagnostics, getUnprocessedFileCount } from "../../features/folders/services/getIndexDiagnostics";
 
 describe("index diagnostics", () => {
   let client: SqlClient;
@@ -103,6 +103,25 @@ describe("index diagnostics", () => {
     expect(diagnostics.totals.rootErrors).toBe(1);
     expect(diagnostics.folders[0].status).toBe("root_error");
     expect(diagnostics.folders[0].folder.lastError).toBe("root unavailable");
+  });
+
+  it("derives partial scan status and unprocessed counts from timeout runs", async () => {
+    await client.execute(
+      `INSERT INTO scan_runs (id, folder_id, started_at, finished_at, files_discovered, files_indexed, files_failed)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), folderId, "2026-06-03T00:00:00.000Z", "2026-06-03T00:02:00.000Z", 422, 51, 1],
+    );
+    await new FolderRepository(client).updateScanError(folderId, "Root scan timed out after 120 seconds.", "2026-06-03T00:02:00.000Z");
+
+    const diagnostics = await getIndexDiagnostics(client);
+
+    expect(diagnostics.folders[0].status).toBe("partial_scan");
+    expect(getUnprocessedFileCount({
+      files_discovered: diagnostics.folders[0].lastRun?.filesDiscovered ?? 0,
+      files_indexed: diagnostics.folders[0].lastRun?.filesIndexed ?? 0,
+      files_failed: diagnostics.folders[0].lastRun?.filesFailed ?? 0,
+    })).toBe(370);
+    expect(diagnostics.totals.rootErrors).toBe(0);
   });
 
   it("adds diagnostics columns to existing databases", async () => {

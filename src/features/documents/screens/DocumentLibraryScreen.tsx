@@ -5,11 +5,17 @@ import { useAppData } from "../../../app/providers/AppDataProvider";
 import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus, SearchResultRecord } from "../../../domain/documents/types";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
 import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
-import { getIndexDiagnostics, type FolderHealthStatus, type IndexDiagnostics } from "../../folders/services/getIndexDiagnostics";
+import {
+  getIndexDiagnostics,
+  getUnprocessedFileCount,
+  type FolderHealthStatus,
+  type FolderIndexDiagnostics,
+  type IndexDiagnostics,
+} from "../../folders/services/getIndexDiagnostics";
 import { listIndexedFolders } from "../../folders/services/listIndexedFolders";
 import { removeIndexedFolder } from "../../folders/services/removeIndexedFolder";
 import { runAllFolderScans, type LibraryScanSummary } from "../../folders/services/runAllFolderScans";
-import { runFolderScan } from "../../folders/services/runFolderScan";
+import { runFolderScan, type FolderScanProgress } from "../../folders/services/runFolderScan";
 import { invokeAppHealth, type AppHealthDto } from "../../folders/services/tauriFolderFs";
 import { watchIndexedFolders } from "../../folders/services/watchIndexedFolders";
 import { queryDocuments } from "../services/queryDocuments";
@@ -37,6 +43,40 @@ function formatParseStatusLabel(status: ParseStatus): string {
   if (status === "parsed_text") return "Parsed text";
   if (status === "parsed_ocr") return "Parsed OCR";
   return "Parse failed";
+}
+
+function formatElapsed(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s elapsed`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s elapsed`;
+}
+
+function folderNameFromPath(path: string): string {
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  return parts.at(-1) ?? path;
+}
+
+function formatScanProgress(progress: FolderScanProgress, nowMs: number): string {
+  const elapsed = formatElapsed(nowMs - progress.startedAtMs);
+  if (progress.phase === "discovering") {
+    return `Discovering files in ${folderNameFromPath(progress.rootPath)} - ${elapsed}`;
+  }
+
+  const countText = `${progress.indexed} indexed / ${progress.discovered} discovered`;
+  const failedText = progress.failed > 0 ? ` - ${progress.failed} failed` : "";
+  if (progress.currentFileName && (progress.phase === "reading" || progress.phase === "parsing")) {
+    const phase = progress.phase === "reading" ? "Reading" : "Parsing";
+    return `${phase} ${progress.currentFileName} - ${countText}${failedText} - ${elapsed}`;
+  }
+  if (progress.phase === "indexing" && progress.currentFileName) {
+    return `Indexing ${progress.currentFileName} - ${countText}${failedText} - ${elapsed}`;
+  }
+  if (progress.phase === "finalizing") {
+    return `Finalizing ${folderNameFromPath(progress.rootPath)} - ${countText}${failedText} - ${elapsed}`;
+  }
+  return `Scanning ${folderNameFromPath(progress.rootPath)} - ${countText}${failedText} - ${elapsed}`;
 }
 
 function formatDocumentStatusLabel(document: IndexedDocumentRecord): string {
@@ -157,12 +197,14 @@ function formatFolderHealth(status: FolderHealthStatus): string {
   if (status === "never_scanned") return "Never scanned";
   if (status === "has_failures") return "Has failures";
   if (status === "scan_incomplete") return "Scan incomplete";
+  if (status === "partial_scan") return "Partial scan";
   return "Root issue";
 }
 
 function diagnosticStatusClass(status: FolderHealthStatus): string {
   if (status === "healthy") return "badge";
   if (status === "never_scanned") return "badge badge--neutral";
+  if (status === "partial_scan") return "badge badge--warning";
   return "badge badge--failed";
 }
 
@@ -170,6 +212,25 @@ function formatFailureStageLabel(stage: SearchResultRecord["failureStage"]): str
   if (stage === "read") return "Read failure";
   if (stage === "parse") return "Parser failure";
   return "Failure details unavailable";
+}
+
+function diagnosticLastRunCounts(item: FolderIndexDiagnostics): string | null {
+  if (!item.lastRun) return null;
+  return `Last run: ${item.lastRun.filesDiscovered} found, ${item.lastRun.filesIndexed} indexed, ${item.lastRun.filesFailed} failed`;
+}
+
+function unprocessedCount(item: FolderIndexDiagnostics): number {
+  if (!item.lastRun) return 0;
+  return getUnprocessedFileCount({
+    files_discovered: item.lastRun.filesDiscovered,
+    files_indexed: item.lastRun.filesIndexed,
+    files_failed: item.lastRun.filesFailed,
+  });
+}
+
+function formatTimeoutLimit(message: string | null): string {
+  const match = message?.match(/after (\d+) seconds/);
+  return match ? `${match[1]} seconds` : "the configured time limit";
 }
 
 export function DocumentLibraryScreen() {
@@ -190,6 +251,8 @@ export function DocumentLibraryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [scanPhase, setScanPhase] = useState<ScanPhase>("idle");
   const [lastSummary, setLastSummary] = useState<LibraryScanSummary | null>(null);
+  const [activeScanProgress, setActiveScanProgress] = useState<FolderScanProgress | null>(null);
+  const [elapsedTickMs, setElapsedTickMs] = useState(() => Date.now());
   const [shellHealth, setShellHealth] = useState<AppHealthDto | null>(null);
   const [watchState, setWatchState] = useState<"idle" | "watching" | "error">("idle");
   const [backgroundIndexing, setBackgroundIndexing] = useState<boolean>(() => {
@@ -266,6 +329,13 @@ export function DocumentLibraryScreen() {
   }, [scanPhase]);
 
   useEffect(() => {
+    if (scanPhase !== "scanning" || !activeScanProgress) return;
+    setElapsedTickMs(Date.now());
+    const timer = window.setInterval(() => setElapsedTickMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [scanPhase, activeScanProgress]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(BACKGROUND_INDEXING_KEY, String(backgroundIndexing));
   }, [backgroundIndexing]);
@@ -288,14 +358,21 @@ export function DocumentLibraryScreen() {
         if (autoScanInFlight.current.has(folder.id)) return false;
         scanInFlight.current = true;
         autoScanInFlight.current.add(folder.id);
-        void runFolderScan(folder.id, client)
+        setScanPhase("scanning");
+        setActiveScanProgress(null);
+        let autoFailed = false;
+        void runFolderScan(folder.id, client, { onProgress: setActiveScanProgress })
           .catch((watchErr) => {
+            autoFailed = true;
             setError(watchErr instanceof Error ? `Auto-index failed: ${watchErr.message}` : "Auto-index failed.");
             setWatchState("error");
+            setScanPhase("completed_with_errors");
           })
           .finally(() => {
             autoScanInFlight.current.delete(folder.id);
             scanInFlight.current = false;
+            setActiveScanProgress(null);
+            if (!autoFailed) setScanPhase("completed");
             bumpDataVersion();
           });
         return true;
@@ -326,10 +403,11 @@ export function DocumentLibraryScreen() {
     scanInFlight.current = true;
     setError(null);
     setScanPhase("scanning");
+    setActiveScanProgress(null);
     setBusy(null);
     try {
       await ensureDefaultLibraryRoots(client);
-      const summary = await runAllFolderScans(client);
+      const summary = await runAllFolderScans(client, { onProgress: setActiveScanProgress });
       setLastSummary(summary);
       const hasIssues = summary.failed > 0 || summary.errors.length > 0;
       setScanPhase(hasIssues ? "completed_with_errors" : "completed");
@@ -337,6 +415,7 @@ export function DocumentLibraryScreen() {
       setError(e instanceof Error ? e.message : String(e));
       setScanPhase("completed_with_errors");
     } finally {
+      setActiveScanProgress(null);
       scanInFlight.current = false;
       bumpDataVersion();
     }
@@ -348,15 +427,20 @@ export function DocumentLibraryScreen() {
     scanInFlight.current = true;
     setError(null);
     setBusy("Adding folder...");
+    setActiveScanProgress(null);
     try {
       const id = await addIndexedFolder(client);
       if (id) {
         setBusy("Scanning new folder...");
-        await runFolderScan(id, client);
+        setScanPhase("scanning");
+        await runFolderScan(id, client, { onProgress: setActiveScanProgress });
+        setScanPhase("completed");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setScanPhase("completed_with_errors");
     } finally {
+      setActiveScanProgress(null);
       setBusy(null);
       scanInFlight.current = false;
       bumpDataVersion();
@@ -370,21 +454,22 @@ export function DocumentLibraryScreen() {
     setError(null);
     setBusy("Scanning...");
     setScanPhase("scanning");
+    setActiveScanProgress(null);
     try {
-      await runFolderScan(folderId, client);
+      await runFolderScan(folderId, client, { onProgress: setActiveScanProgress });
       setScanPhase("completed");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setScanPhase("completed_with_errors");
     } finally {
+      setActiveScanProgress(null);
       setBusy(null);
       scanInFlight.current = false;
       bumpDataVersion();
     }
   };
 
-  const onRemoveFolder = async (event: FormEvent, folderId: string) => {
-    event.preventDefault();
+  const removeFolderById = async (folderId: string) => {
     if (!client || loadState !== "ready") return;
     if (!window.confirm("Remove this folder from StackDrop? Files on disk will not be deleted.")) return;
     setError(null);
@@ -399,6 +484,17 @@ export function DocumentLibraryScreen() {
     }
   };
 
+  const onRemoveFolder = async (event: FormEvent, folderId: string) => {
+    event.preventDefault();
+    await removeFolderById(folderId);
+  };
+
+  const onViewFailures = (folderId: string) => {
+    setFolderFilter(folderId);
+    setParseFilter("parse_failed");
+    window.setTimeout(() => document.querySelector(".arrange-toolbar")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
   if (loadState === "loading" || !client) {
     return <p className="muted">Loading database...</p>;
   }
@@ -406,11 +502,12 @@ export function DocumentLibraryScreen() {
     return <p className="error">Failed to load database.</p>;
   }
 
-  const statusLine = summarizePhase(lastSummary, scanPhase);
+  const statusLine = activeScanProgress ? formatScanProgress(activeScanProgress, elapsedTickMs) : summarizePhase(lastSummary, scanPhase);
   const isBusy = scanPhase === "scanning" || !!busy;
   const hasActiveFilters = searchHasText || folderFilter !== "" || extensionFilter !== "" || parseFilter !== "";
   const failedCount = documents.filter((document) => document.parseStatus === "parse_failed").length;
   const sortSelectValue = !searchHasText && sortMode === "best_match" ? "recent_indexed" : sortMode;
+  const partialScanCount = diagnostics?.folders.filter((item) => item.status === "partial_scan").length ?? 0;
 
   return (
     <div className={`stack document-library document-library--${density}`} id="library">
@@ -547,9 +644,17 @@ export function DocumentLibraryScreen() {
               <span>Root issues</span>
               <strong>{diagnostics.totals.rootErrors}</strong>
             </div>
+            <div className="diagnostic-stat">
+              <span>Partial scans</span>
+              <strong>{partialScanCount}</strong>
+            </div>
           </div>
           <p className="diagnostics-note">
             Unsupported or skipped files are not tracked in the current index schema; unsupported extensions are filtered during discovery.
+          </p>
+          <p className="diagnostics-note">
+            Failed parses do not break filename or path search. Parser failures mean content could not be extracted; read failures mean the file
+            could not be read, often because it is too large, missing, or blocked.
           </p>
           {diagnostics.folders.length === 0 ? (
             <div className="empty-state-block empty-state-block--compact">
@@ -560,6 +665,10 @@ export function DocumentLibraryScreen() {
             <ul className="diagnostic-folder-list">
               {diagnostics.folders.map((item) => {
                 const failedDocuments = item.parseFailures + item.readFailures + item.unknownFailures;
+                const unprocessed = unprocessedCount(item);
+                const lastRunCounts = diagnosticLastRunCounts(item);
+                const isPartialScan = item.status === "partial_scan";
+                const timeoutLimit = formatTimeoutLimit(item.folder.lastError);
                 return (
                   <li key={item.folder.id} className="diagnostic-folder-row">
                     <div className="diagnostic-folder-main">
@@ -571,17 +680,57 @@ export function DocumentLibraryScreen() {
                       </div>
                       <div className="folder-meta">
                         Last scan: {formatDate(item.folder.lastScanAt)}
-                        {item.lastRun
-                          ? `; Last run: ${item.lastRun.filesDiscovered} found, ${item.lastRun.filesIndexed} indexed, ${item.lastRun.filesFailed} failed`
-                          : "; No scan run recorded"}
+                        {lastRunCounts ? `; ${lastRunCounts}` : "; No scan run recorded"}
                       </div>
-                      {item.folder.lastError ? (
+                      {isPartialScan && item.lastRun ? (
+                        <div className="partial-scan-note">
+                          <strong>Scan paused after {timeoutLimit} to keep the app responsive.</strong>
+                          <span>
+                            {item.lastRun.filesIndexed} of {item.lastRun.filesDiscovered} discovered files were indexed before the scan stopped.
+                          </span>
+                          <span>
+                            {unprocessed} file{unprocessed !== 1 ? "s" : ""} {unprocessed === 1 ? "was" : "were"} not processed. Re-scan this folder to retry indexing; unindexed files are prioritized.
+                          </span>
+                          {item.folder.lastError ? (
+                            <details>
+                              <summary>Technical details</summary>
+                              <small>{item.folder.lastError}</small>
+                            </details>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {!isPartialScan && unprocessed > 0 ? (
+                        <p className="diagnostic-warning">
+                          {unprocessed} discovered file{unprocessed !== 1 ? "s" : ""} {unprocessed === 1 ? "was" : "were"} not processed. Re-scan this folder to retry indexing.
+                        </p>
+                      ) : null}
+                      {!isPartialScan && item.folder.lastError ? (
                         <p className="diagnostic-error">Root error: {item.folder.lastError}</p>
                       ) : null}
+                      <div className="diagnostic-folder-actions">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          aria-label={`Scan ${item.folder.rootPath} again`}
+                          onClick={() => void onRescan(item.folder.id)}
+                          disabled={isBusy}
+                        >
+                          Re-scan this folder
+                        </button>
+                        {failedDocuments > 0 ? (
+                          <button type="button" className="button-secondary" onClick={() => onViewFailures(item.folder.id)}>
+                            View failures
+                          </button>
+                        ) : null}
+                        <button type="button" className="button-danger" onClick={() => void removeFolderById(item.folder.id)} disabled={isBusy}>
+                          Remove folder
+                        </button>
+                      </div>
                     </div>
                     <div className="diagnostic-folder-counts">
                       <span>{item.searchableDocuments} searchable</span>
                       <span>{failedDocuments} failed</span>
+                      {unprocessed > 0 ? <span>{unprocessed} unprocessed</span> : null}
                     </div>
                   </li>
                 );

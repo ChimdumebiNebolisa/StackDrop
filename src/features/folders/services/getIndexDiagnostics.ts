@@ -2,7 +2,7 @@ import type { FailureStage, IndexedFolderRecord } from "../../../domain/document
 import type { SqlClient } from "../../../data/db/sqliteClient";
 import { FolderRepository } from "../../../data/repositories/folderRepository";
 
-export type FolderHealthStatus = "healthy" | "never_scanned" | "has_failures" | "root_error" | "scan_incomplete";
+export type FolderHealthStatus = "healthy" | "never_scanned" | "has_failures" | "root_error" | "scan_incomplete" | "partial_scan";
 
 export interface FolderIndexDiagnostics {
   folder: IndexedFolderRecord;
@@ -47,6 +47,12 @@ export interface IndexDiagnostics {
   unsupportedSkippedFilesTracked: false;
 }
 
+export interface ScanRunCounts {
+  files_discovered: number;
+  files_indexed: number;
+  files_failed: number;
+}
+
 interface FolderStatsRow {
   total_documents: number;
   searchable_documents: number;
@@ -55,12 +61,9 @@ interface FolderStatsRow {
   unknown_failures: number;
 }
 
-interface ScanRunRow {
+interface ScanRunRow extends ScanRunCounts {
   started_at: string;
   finished_at: string | null;
-  files_discovered: number;
-  files_indexed: number;
-  files_failed: number;
 }
 
 interface RecentFailureRow {
@@ -78,11 +81,26 @@ function numberOrZero(value: number | null | undefined): number {
   return Number(value ?? 0);
 }
 
+export function getUnprocessedFileCount(
+  lastRun: ScanRunCounts | null,
+): number {
+  if (!lastRun) return 0;
+  return Math.max(
+    0,
+    numberOrZero(lastRun.files_discovered) - numberOrZero(lastRun.files_indexed) - numberOrZero(lastRun.files_failed),
+  );
+}
+
+export function isRootScanTimeoutError(message: string | null | undefined): boolean {
+  return typeof message === "string" && /^Root scan timed out after \d+ seconds\.$/.test(message);
+}
+
 function determineFolderStatus(
   folder: IndexedFolderRecord,
   stats: FolderStatsRow,
   lastRun: ScanRunRow | null,
 ): FolderHealthStatus {
+  if (isRootScanTimeoutError(folder.lastError) && getUnprocessedFileCount(lastRun) > 0) return "partial_scan";
   if (folder.lastError) return "root_error";
   if (lastRun && !lastRun.finished_at) return "scan_incomplete";
   if (!folder.lastScanAt && !lastRun) return "never_scanned";

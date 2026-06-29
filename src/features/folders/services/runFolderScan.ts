@@ -16,10 +16,36 @@ export interface FolderScanSummary {
   failed: number;
 }
 
+export type FolderScanProgressPhase = "discovering" | "reading" | "parsing" | "indexing" | "finalizing";
+
+export interface FolderScanProgress {
+  folderId: string;
+  rootPath: string;
+  phase: FolderScanProgressPhase;
+  discovered: number;
+  indexed: number;
+  failed: number;
+  startedAtMs: number;
+  currentFileName?: string;
+}
+
 export interface FolderScanOptions {
   signal?: AbortSignal;
   fileReadTimeoutMs?: number;
   fileParseTimeoutMs?: number;
+  onProgress?: (progress: FolderScanProgress) => void;
+}
+
+interface ExistingScanState {
+  id: string;
+  modifiedAt: string;
+  parseStatus: string;
+}
+
+interface ScanItem {
+  file: Awaited<ReturnType<typeof invokeDiscoverSupportedFiles>>[number];
+  existing: ExistingScanState | null;
+  originalIndex: number;
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -59,6 +85,7 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
   const signal = options.signal;
   const fileReadTimeoutMs = options.fileReadTimeoutMs ?? DEFAULT_FILE_READ_TIMEOUT_MS;
   const fileParseTimeoutMs = options.fileParseTimeoutMs ?? DEFAULT_FILE_PARSE_TIMEOUT_MS;
+  const startedAtMs = Date.now();
 
   throwIfAborted(signal);
   const folder = await folderRepo.getFolder(folderId);
@@ -66,9 +93,26 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
     throw new Error("Folder not found.");
   }
 
+  const emitProgress = (
+    phase: FolderScanProgressPhase,
+    counts: { discovered?: number; indexed?: number; failed?: number; currentFileName?: string },
+  ) => {
+    options.onProgress?.({
+      folderId,
+      rootPath: folder.rootPath,
+      phase,
+      discovered: counts.discovered ?? 0,
+      indexed: counts.indexed ?? 0,
+      failed: counts.failed ?? 0,
+      startedAtMs,
+      currentFileName: counts.currentFileName,
+    });
+  };
+
   let discovered: Awaited<ReturnType<typeof invokeDiscoverSupportedFiles>>;
   try {
     throwIfAborted(signal);
+    emitProgress("discovering", {});
     discovered = await invokeDiscoverSupportedFiles(folder.rootPath);
     throwIfAborted(signal);
   } catch (error) {
@@ -90,15 +134,26 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
   );
 
   try {
-    for (const file of discovered) {
+    const scanItems: ScanItem[] = [];
+    for (const [originalIndex, file] of discovered.entries()) {
+      scanItems.push({
+        file,
+        existing: await docRepo.findScanStateByAbsolutePath(file.absolutePath),
+        originalIndex,
+      });
+    }
+    scanItems.sort((a, b) => scanPriority(a) - scanPriority(b) || a.originalIndex - b.originalIndex);
+
+    for (const item of scanItems) {
+      const file = item.file;
       throwIfAborted(signal);
-      const existingId = await docRepo.findIdByAbsolutePath(file.absolutePath);
-      const id = existingId ?? crypto.randomUUID();
+      const id = item.existing?.id ?? crypto.randomUUID();
       const modifiedAt = new Date(file.modifiedAtMs).toISOString();
       const now = new Date().toISOString();
 
       let bytes: Uint8Array;
       try {
+        emitProgress("reading", { discovered: discovered.length, indexed, failed, currentFileName: file.fileName });
         logScanSummary("file_read_start", { extension: file.extension, fileName: file.fileName });
         bytes = await withTimeout(
           invokeReadFileBytesUnderRoot(folder.rootPath, file.absolutePath),
@@ -132,6 +187,7 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
 
       let parsed: Awaited<ReturnType<typeof parseDiscoveredFile>>;
       try {
+        emitProgress("parsing", { discovered: discovered.length, indexed, failed, currentFileName: file.fileName });
         logScanSummary("file_parse_start", { extension: file.extension, fileName: file.fileName });
         parsed = await withTimeout(
           parseDiscoveredFile({
@@ -172,6 +228,7 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
       if (parseStatus === "parsed_text" || parseStatus === "parsed_ocr") indexed += 1;
       else failed += 1;
 
+      emitProgress("indexing", { discovered: discovered.length, indexed, failed, currentFileName: file.fileName });
       logScanSummary("file_upsert_start", { extension: file.extension, fileName: file.fileName });
       await docRepo.upsertDocument({
         id,
@@ -197,6 +254,7 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
       logScanSummary("file_upsert_complete", { extension: file.extension, fileName: file.fileName });
     }
 
+    emitProgress("finalizing", { discovered: discovered.length, indexed, failed });
     await docRepo.deleteDocumentsNotInPaths(folderId, keepPaths);
   } finally {
     const finishedAt = new Date().toISOString();
@@ -213,4 +271,12 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
   const summary = { discovered: discovered.length, indexed, failed };
   logScanSummary("folder_scan_complete", { folderId, ...summary });
   return summary;
+}
+
+function scanPriority(item: ScanItem): number {
+  if (!item.existing) return 0;
+  const modifiedAt = new Date(item.file.modifiedAtMs).toISOString();
+  if (item.existing.modifiedAt !== modifiedAt) return 1;
+  if (item.existing.parseStatus === "parse_failed") return 2;
+  return 3;
 }

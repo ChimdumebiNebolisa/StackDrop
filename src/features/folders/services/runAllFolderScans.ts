@@ -1,7 +1,7 @@
 import type { SqlClient } from "../../../data/db/sqliteClient";
 import { FolderRepository } from "../../../data/repositories/folderRepository";
 import { logScanSummary } from "../../../lib/log";
-import { runFolderScan } from "./runFolderScan";
+import { runFolderScan, type FolderScanProgress } from "./runFolderScan";
 
 const DEFAULT_ROOT_SCAN_TIMEOUT_MS = 120_000;
 
@@ -16,6 +16,7 @@ export interface LibraryScanSummary {
 
 export interface LibraryScanOptions {
   rootTimeoutMs?: number;
+  onProgress?: (progress: FolderScanProgress) => void;
 }
 
 function scanWithTimeout<T>(
@@ -63,7 +64,7 @@ export async function runAllFolderScans(client: SqlClient, options: LibraryScanO
     const controller = new AbortController();
     try {
       const summary = await scanWithTimeout(
-        runFolderScan(folder.id, client, { signal: controller.signal }),
+        runFolderScan(folder.id, client, { signal: controller.signal, onProgress: options.onProgress }),
         rootTimeoutMs,
         (error) => {
           controller.abort(error);

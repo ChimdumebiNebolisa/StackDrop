@@ -102,8 +102,9 @@ After `setup`:
    ```
 
 4. Click **Index library**.
-5. Open **Index Diagnostics** and confirm totals, failures, and folder health are understandable.
-6. Run the setup queries printed by the harness.
+5. While indexing is active, confirm the index controls show live progress such as the current folder or file, discovered/indexed/failed counts, and elapsed time instead of only `Scanning...`.
+6. Open **Index Diagnostics** and confirm totals, failures, folder health, and parse/read failure explanations are understandable.
+7. Run the setup queries printed by the harness.
 
 After `mutate`:
 
@@ -119,6 +120,7 @@ After `offline`:
 1. The harness renames the indexed root to `StackDropManualTest.offline`.
 2. In StackDrop, click **Index library**.
 3. Confirm existing rows are not wiped and **Index Diagnostics** shows a root issue for the original root path.
+4. If the row has a timeout plus unprocessed files, confirm it is described as **Partial scan**, shows the unprocessed count, and offers **Re-scan this folder** without claiming exact resume.
 
 After `restore`:
 

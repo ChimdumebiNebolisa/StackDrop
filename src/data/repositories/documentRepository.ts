@@ -104,6 +104,21 @@ export class DocumentRepository {
     return row?.id ?? null;
   }
 
+  async findScanStateByAbsolutePath(
+    absolutePath: string,
+  ): Promise<{ id: string; modifiedAt: string; parseStatus: ParseStatus } | null> {
+    const row = await this.client.get<{ id: string; modified_at: string; parse_status: ParseStatus }>(
+      "SELECT id, modified_at, parse_status FROM indexed_documents WHERE absolute_path = ?",
+      [absolutePath],
+    );
+    if (!row) return null;
+    return {
+      id: row.id,
+      modifiedAt: row.modified_at,
+      parseStatus: row.parse_status,
+    };
+  }
+
   async listDocuments(filters: DocumentQueryFilters = {}): Promise<IndexedDocumentRecord[]> {
     const clauses: string[] = [];
     const params: unknown[] = [];

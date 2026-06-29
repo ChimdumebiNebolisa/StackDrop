@@ -31,8 +31,8 @@ declare global {
     __STACKDROP_E2E__?: {
       pickFolder?: () => string | null;
       defaultDocumentRoots?: () => string[];
-      discoverSupportedFiles?: (rootPath: string) => DiscoveredFileDto[];
-      readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null;
+      discoverSupportedFiles?: (rootPath: string) => DiscoveredFileDto[] | Promise<DiscoveredFileDto[]>;
+      readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null | Promise<Uint8Array | number[] | null>;
       ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
       extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
       watchFolders?: E2EWatchFoldersHook;
@@ -75,14 +75,14 @@ export async function invokeAppHealth(): Promise<AppHealthDto> {
 export async function invokeDiscoverSupportedFiles(rootPath: string): Promise<DiscoveredFileDto[]> {
   if (import.meta.env.VITE_E2E_SQLITE === "1" && typeof window !== "undefined") {
     const fn = window.__STACKDROP_E2E__?.discoverSupportedFiles;
-    if (fn) return fn(rootPath);
+    if (fn) return await fn(rootPath);
   }
   return invoke<DiscoveredFileDto[]>("discover_supported_files", { rootPath });
 }
 
 export async function invokeReadFileBytesUnderRoot(rootPath: string, absolutePath: string): Promise<Uint8Array> {
   if (import.meta.env.VITE_E2E_SQLITE === "1" && typeof window !== "undefined") {
-    const raw = window.__STACKDROP_E2E__?.readFileUnderRoot?.(rootPath, absolutePath);
+    const raw = await window.__STACKDROP_E2E__?.readFileUnderRoot?.(rootPath, absolutePath);
     if (!raw) {
       throw new Error("E2E readFileUnderRoot returned no data.");
     }

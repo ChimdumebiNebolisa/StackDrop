@@ -557,6 +557,12 @@ summary:focus-visible {
   background: var(--color-canvas-fog);
 }
 
+.badge--warning {
+  color: #7a4b00;
+  background: #fff8e6;
+  border-color: #f1c56d;
+}
+
 /* ── Result rows (design.md §10.5) ──────────────────────────── */
 
 .doc-list {
@@ -849,6 +855,45 @@ summary:focus-visible {
   color: var(--color-danger-text);
   font-size: var(--text-small);
   line-height: var(--leading-normal);
+}
+
+.diagnostic-warning,
+.partial-scan-note {
+  margin: var(--spacing-8) 0 0;
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.diagnostic-warning {
+  color: #7a4b00;
+}
+
+.partial-scan-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  color: var(--color-midnight-ink);
+}
+
+.partial-scan-note strong {
+  color: #7a4b00;
+  font-size: var(--text-small);
+}
+
+.partial-scan-note details {
+  color: var(--color-ash-slate);
+}
+
+.partial-scan-note summary {
+  cursor: pointer;
+  font-size: var(--text-caption);
+}
+
+.diagnostic-folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-8);
 }
 
 .recent-failures {
