@@ -48,6 +48,10 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check release metadata and bundled resources
+        shell: pwsh
+        run: ./scripts/check-release-integrity.ps1
+
       - name: Typecheck
         run: npm run typecheck
 
