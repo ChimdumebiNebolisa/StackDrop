@@ -38,6 +38,7 @@ export interface FolderScanOptions {
 
 interface ExistingScanState {
   id: string;
+  sizeBytes: number;
   modifiedAt: string;
   parseStatus: string;
 }
@@ -76,6 +77,14 @@ function withTimeout<T>(work: Promise<T>, timeoutMs: number, onTimeout: () => Er
       },
     );
   });
+}
+
+function isHealthyUnchanged(item: ScanItem, modifiedAt: string): boolean {
+  return (
+    item.existing?.parseStatus !== "parse_failed" &&
+    item.existing?.modifiedAt === modifiedAt &&
+    item.existing?.sizeBytes === Number(item.file.sizeBytes)
+  );
 }
 
 export async function runFolderScan(folderId: string, client: SqlClient, options: FolderScanOptions = {}): Promise<FolderScanSummary> {
@@ -150,6 +159,12 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
       const id = item.existing?.id ?? crypto.randomUUID();
       const modifiedAt = new Date(file.modifiedAtMs).toISOString();
       const now = new Date().toISOString();
+
+      if (isHealthyUnchanged(item, modifiedAt)) {
+        indexed += 1;
+        logScanSummary("file_skip_unchanged", { extension: file.extension, fileName: file.fileName });
+        continue;
+      }
 
       let bytes: Uint8Array;
       try {
@@ -276,7 +291,7 @@ export async function runFolderScan(folderId: string, client: SqlClient, options
 function scanPriority(item: ScanItem): number {
   if (!item.existing) return 0;
   const modifiedAt = new Date(item.file.modifiedAtMs).toISOString();
-  if (item.existing.modifiedAt !== modifiedAt) return 1;
+  if (item.existing.modifiedAt !== modifiedAt || item.existing.sizeBytes !== Number(item.file.sizeBytes)) return 1;
   if (item.existing.parseStatus === "parse_failed") return 2;
   return 3;
 }

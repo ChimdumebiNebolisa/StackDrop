@@ -14,7 +14,7 @@ Update these files together when changing the app version:
 - `src-tauri/Cargo.toml`
 - `src-tauri/Cargo.lock`
 
-The GitHub tag should match the app version with a leading `v`, for example `v2.1.3`.
+The GitHub tag should match the app version with a leading `v`, for example `v2.1.4`.
 
 ## 2. Verify Locally
 
@@ -59,11 +59,11 @@ git push origin main
 After verification passes and `main` is pushed:
 
 ```powershell
-git tag v2.1.3
-git push origin v2.1.3
+git tag v2.1.4
+git push origin v2.1.4
 ```
 
-Replace `v2.1.3` with the selected version.
+Replace `v2.1.4` with the selected version.
 
 ## 6. Download the Installer
 
@@ -82,4 +82,4 @@ https://github.com/ChimdumebiNebolisa/StackDrop/releases/latest
 
 - The installer is currently unsigned, so Windows SmartScreen may warn users.
 - The workflow creates a public GitHub Release when a version tag is pushed.
-- Use a draft/manual release only if you need to edit release notes before public distribution.
+- Use [`RELEASE_NOTES.md`](RELEASE_NOTES.md) as the starting point for GitHub release notes.

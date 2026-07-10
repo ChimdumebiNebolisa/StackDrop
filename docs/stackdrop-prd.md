@@ -1,8 +1,8 @@
 # StackDrop PRD
 
-Version: v1.3 (core document types)
-Status: Locked for v1 build
-Date: 2026-05-12
+Version: v2.1.4
+Status: Active product definition
+Date: 2026-07-10
 
 ## 1. Product definition
 
@@ -51,9 +51,10 @@ When I open StackDrop, I click **one button** to refresh my local document index
 - **Optional roots:** user can **add** folders via picker; **remove** a root from the app **without** deleting files on disk.
 - **Recursive scan** under each root for supported files only.
 - **Supported types (searchable):**
-  - **`.txt`**
-  - **`.pdf`**
-  - **`.docx`** (Office Open XML Word)
+- **`.txt`**
+- **`.pdf`**
+- **`.docx`** (Office Open XML Word)
+- **`.doc`** (legacy Word, extracted locally when the bundled tool is available)
 - **Index fields:** file name, absolute path, path relative to root, extension, size, modified time, extracted text when parsing succeeds, **parse status** and error detail on failure.
 - **Unsupported** extensions are never stored as successfully indexed searchable documents.
 
@@ -63,7 +64,7 @@ When I open StackDrop, I click **one button** to refresh my local document index
 - **Filters** limited to what materially helps discovery:
   - **indexed root** (folder)
   - **file type** (extension)
-  - **parse status** (`indexed` | `failed`)
+  - **parse status** (`parsed_text` | `parsed_ocr` | `parse_failed`)
 - **Manual re-scan** via the primary index action (and optional per-root re-scan if retained in UI).
 - **Document detail:** path, type, timestamps, parse status/error, extracted preview.
 
@@ -88,8 +89,9 @@ When I open StackDrop, I click **one button** to refresh my local document index
 
 ## 3. Out of scope for v1 (forbidden without PRD update)
 
-- AI features, vector search, OCR for scanned PDFs (unless PRD amended)
-- Continuous directory watcher / always-on background full-disk scan
+- Cloud AI features, cloud indexing, accounts, or content telemetry
+- Semantic/vector search unless a lexical benchmark proves a gap and the implementation stays fully local
+- Always-on background full-disk scan
 - Sync, accounts, sharing, mobile, browser extension
 - REST/HTTP “health APIs” — use **Tauri commands** and in-app diagnostics instead
 
@@ -97,7 +99,7 @@ When I open StackDrop, I click **one button** to refresh my local document index
 
 - Default roots appear when starting from an **empty** registry (where OS folders exist).
 - **Index library** runs scans for **all** registered roots recursively.
-- **`.txt`**, **`.pdf`**, **`.docx`** index and search correctly when parsing succeeds; failures are explicit `failed` with detail.
+- **`.txt`**, **`.pdf`**, **`.docx`**, and **`.doc`** index and search correctly when parsing succeeds; failures are explicit `parse_failed` with detail.
 - Search matches **file name** and **body**; filters work for folder, extension, parse status.
 - Re-scan updates the index; **removed files** disappear from results after scan.
 - Removing a root from the app does not delete disk files.

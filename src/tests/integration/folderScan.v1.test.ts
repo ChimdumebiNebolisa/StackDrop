@@ -6,6 +6,7 @@ import { createTestSqlClient } from "../../data/db/createTestSqlClient";
 import { runMigrations } from "../../data/db/migrate";
 import type { SqlClient } from "../../data/db/sqliteClient";
 import { FolderRepository } from "../../data/repositories/folderRepository";
+import { DocumentSearchRepository } from "../../data/search/documentSearchRepository";
 import { queryDocuments } from "../../features/documents/services/queryDocuments";
 import { runAllFolderScans } from "../../features/folders/services/runAllFolderScans";
 import { runFolderScan } from "../../features/folders/services/runFolderScan";
@@ -428,7 +429,82 @@ describe("folder scan orchestration", () => {
     await runFolderScan(folderId, client);
 
     expect(readOrder[0]).toBe("C:\\fixture-root\\new.txt");
-    expect(readOrder[1]).toBe("C:\\fixture-root\\old.txt");
+    expect(readOrder).toHaveLength(1);
+  });
+
+  it("skips unchanged healthy files without reading, parsing, or rewriting FTS", async () => {
+    const folderId = await addFixtureFolder();
+    const modifiedAtMs = Date.now();
+    const discovered = [
+      {
+        absolutePath: "C:\\fixture-root\\stable.txt",
+        relativePath: "stable.txt",
+        fileName: "stable.txt",
+        extension: "txt",
+        sizeBytes: 23,
+        modifiedAtMs,
+      },
+    ];
+    const indexSpy = vi.spyOn(DocumentSearchRepository.prototype, "indexDocument");
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles)
+      .mockResolvedValueOnce(discovered)
+      .mockResolvedValueOnce(discovered);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockResolvedValue(
+      new TextEncoder().encode("UNCHANGED_HEALTHY_TOKEN"),
+    );
+
+    await runFolderScan(folderId, client);
+    const before = await client.get<{ updated_at: string }>(
+      "SELECT updated_at FROM indexed_documents WHERE absolute_path = ?",
+      ["C:\\fixture-root\\stable.txt"],
+    );
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockClear();
+    vi.mocked(tauriFolderFs.invokeOcrPdfTextUnderRoot).mockClear();
+    vi.mocked(tauriFolderFs.invokeExtractDocTextUnderRoot).mockClear();
+    indexSpy.mockClear();
+
+    const summary = await runFolderScan(folderId, client);
+
+    expect(summary).toEqual({ discovered: 1, indexed: 1, failed: 0 });
+    expect(tauriFolderFs.invokeReadFileBytesUnderRoot).not.toHaveBeenCalled();
+    expect(tauriFolderFs.invokeOcrPdfTextUnderRoot).not.toHaveBeenCalled();
+    expect(tauriFolderFs.invokeExtractDocTextUnderRoot).not.toHaveBeenCalled();
+    expect(indexSpy).not.toHaveBeenCalled();
+    const after = await client.get<{ updated_at: string }>(
+      "SELECT updated_at FROM indexed_documents WHERE absolute_path = ?",
+      ["C:\\fixture-root\\stable.txt"],
+    );
+    expect(after?.updated_at).toBe(before?.updated_at);
+    expect(await queryDocuments(client, "UNCHANGED_HEALTHY_TOKEN", {})).toHaveLength(1);
+  });
+
+  it("reprocesses a file once when size changes even if modified time is unchanged", async () => {
+    const folderId = await addFixtureFolder();
+    const modifiedAtMs = Date.now();
+    const first = {
+      absolutePath: "C:\\fixture-root\\size-change.txt",
+      relativePath: "size-change.txt",
+      fileName: "size-change.txt",
+      extension: "txt",
+      sizeBytes: 10,
+      modifiedAtMs,
+    };
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles)
+      .mockResolvedValueOnce([first])
+      .mockResolvedValueOnce([{ ...first, sizeBytes: 11 }]);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot)
+      .mockResolvedValueOnce(new TextEncoder().encode("OLD_SIZE_TOKEN"))
+      .mockResolvedValueOnce(new TextEncoder().encode("NEW_SIZE_TOKEN"));
+
+    await runFolderScan(folderId, client);
+    vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockClear();
+    await runFolderScan(folderId, client);
+
+    expect(tauriFolderFs.invokeReadFileBytesUnderRoot).toHaveBeenCalledTimes(1);
+    expect(await queryDocuments(client, "OLD_SIZE_TOKEN", {})).toHaveLength(0);
+    const hits = await queryDocuments(client, "NEW_SIZE_TOKEN", {});
+    expect(hits).toHaveLength(1);
+    expect(hits[0].fileName).toBe("size-change.txt");
   });
 
   it("removes stale filename/path rows when a file is renamed or moved within the root", async () => {
@@ -501,16 +577,18 @@ describe("folder scan orchestration", () => {
   it("removes stale FTS content when a previously parsed file later fails parsing", async () => {
     const folderId = await addFixtureFolder();
     const docBytes = await readFile(join(process.cwd(), "src/tests/fixtures/legacy-sample.doc"));
-    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles).mockResolvedValue([
-      {
-        absolutePath: "C:\\fixture-root\\legacy-sample.doc",
-        relativePath: "legacy-sample.doc",
-        fileName: "legacy-sample.doc",
-        extension: "doc",
-        sizeBytes: docBytes.length,
-        modifiedAtMs: Date.now(),
-      },
-    ]);
+    const modifiedAtMs = Date.now();
+    const discovered = {
+      absolutePath: "C:\\fixture-root\\legacy-sample.doc",
+      relativePath: "legacy-sample.doc",
+      fileName: "legacy-sample.doc",
+      extension: "doc",
+      sizeBytes: docBytes.length,
+      modifiedAtMs,
+    };
+    vi.mocked(tauriFolderFs.invokeDiscoverSupportedFiles)
+      .mockResolvedValueOnce([discovered])
+      .mockResolvedValueOnce([{ ...discovered, modifiedAtMs: modifiedAtMs + 1 }]);
     vi.mocked(tauriFolderFs.invokeReadFileBytesUnderRoot).mockResolvedValue(new Uint8Array(docBytes));
     vi.mocked(tauriFolderFs.invokeExtractDocTextUnderRoot)
       .mockResolvedValueOnce("STALE_PARSE_TOKEN")

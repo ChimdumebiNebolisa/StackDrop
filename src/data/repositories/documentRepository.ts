@@ -106,14 +106,15 @@ export class DocumentRepository {
 
   async findScanStateByAbsolutePath(
     absolutePath: string,
-  ): Promise<{ id: string; modifiedAt: string; parseStatus: ParseStatus } | null> {
-    const row = await this.client.get<{ id: string; modified_at: string; parse_status: ParseStatus }>(
-      "SELECT id, modified_at, parse_status FROM indexed_documents WHERE absolute_path = ?",
+  ): Promise<{ id: string; sizeBytes: number; modifiedAt: string; parseStatus: ParseStatus } | null> {
+    const row = await this.client.get<{ id: string; size_bytes: number; modified_at: string; parse_status: ParseStatus }>(
+      "SELECT id, size_bytes, modified_at, parse_status FROM indexed_documents WHERE absolute_path = ?",
       [absolutePath],
     );
     if (!row) return null;
     return {
       id: row.id,
+      sizeBytes: row.size_bytes,
       modifiedAt: row.modified_at,
       parseStatus: row.parse_status,
     };
