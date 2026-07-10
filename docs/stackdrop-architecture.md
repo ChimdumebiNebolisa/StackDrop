@@ -1,8 +1,8 @@
 # StackDrop Architecture
 
-Version: v1.3 (core document types)
-Status: Locked for v1 build
-Date: 2026-05-12
+Version: v2.1.4
+Status: Active architecture notes
+Date: 2026-07-10
 
 ## 1. Architecture goal
 
@@ -50,7 +50,7 @@ No accounts, no remote services, no implicit full-disk indexing.
 
 - **`ensureDefaultLibraryRoots(client)`** — if no folders registered, insert default roots from shell command.
 - **`runAllFolderScans(client)`** — orchestrate `runFolderScan` for each root sequentially; aggregate counts for UI.
-- **`runFolderScan(folderId, client)`** — existing per-root pipeline: discover → read → parse → persist → FTS sync → prune missing paths.
+- **`runFolderScan(folderId, client)`** — existing per-root pipeline: discover → skip unchanged healthy files → read changed/new/failed files → parse → persist → FTS sync → prune missing paths.
 - Search, list, detail, folder CRUD, validation.
 
 **Does not own**
@@ -132,7 +132,7 @@ const health = await invoke<{ ok: boolean; packageVersion: string }>("app_health
 
 ### IndexedDocument
 
-- `id`, `folderId`, paths, `fileName`, `fileExtension` (`txt` \| `pdf` \| `docx` \| `doc`), size, modified time, `parseStatus`, `parseError`, `extractedText`, `updatedAt`
+- `id`, `folderId`, paths, `fileName`, `fileExtension` (`txt` \| `pdf` \| `docx` \| `doc`), size, modified time, `parseStatus`, `failureStage`, `parseError`, `extractedText`, `updatedAt`
 
 ### ScanRun
 
@@ -152,7 +152,7 @@ const health = await invoke<{ ok: boolean; packageVersion: string }>("app_health
 
 - Tauri v2, React, TypeScript, Vite
 - `tauri-plugin-sql`, SQLite FTS5
-- `pdfjs-dist`, **mammoth** (`.docx`)
+- `pdfjs-dist`, **mammoth** (`.docx`), bundled local OCR/DOC extraction tools
 - Vitest, Playwright
 
 ## 7. Folder / file layout (target)

@@ -39,7 +39,7 @@ Search uses weighted `bm25(document_search, 10.0, 5.0, 1.0)` for relevance ranki
 
 ### `scan_runs`
 
-Per-folder run: `started_at`, `finished_at`, counters `files_discovered`, `files_indexed`, `files_failed` for diagnostics.
+Per-folder run: `started_at`, `finished_at`, counters `files_discovered`, `files_indexed`, `files_failed` for diagnostics. `files_indexed` includes files confirmed already indexed and unchanged during a repeat scan.
 
 ## Indexes (why they exist)
 
@@ -77,6 +77,6 @@ After each scan, `deleteDocumentsNotInPaths` removes DB + FTS rows for files no 
 
 ## Transactions
 
-`runFolderScan` records the scan run before per-file work, commits each file result as it is handled, and finalizes the scan run in `finally` for handled read/parse failures and timeouts. This prevents one stuck file from leaving the UI in `Scanning...` with an open scan row. Pruning removed files runs only after discovery and the per-file loop complete, so an unavailable/problematic root does not wipe existing indexed results.
+`runFolderScan` records the scan run before per-file work, checks existing state for each discovered path, skips unchanged healthy files by path + size + modified timestamp, commits changed/new/failed file results as they are handled, and finalizes the scan run in `finally` for handled read/parse failures and timeouts. This prevents one stuck file from leaving the UI in `Scanning...` with an open scan row. Pruning removed files runs only after discovery and the per-file loop complete, so an unavailable/problematic root does not wipe existing indexed results.
 
 Repository helpers still use [`withTransaction`](../src/lib/db/withTransaction.ts) where atomic multi-statement updates are required.

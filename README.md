@@ -23,6 +23,7 @@ MSI packages may also be attached to releases for managed install workflows, but
 - Ranks filename matches above path matches, and path matches above body matches.
 - Shows snippets for content matches when available.
 - Watches indexed folders while the app is open and can re-index changed files.
+- Skips unchanged healthy files on repeat scans, avoiding unnecessary file reads, parsing, OCR, and search-index rewrites.
 - Shows index diagnostics, read/parser failures, scan progress, and partial scan status.
 - Keeps indexed data on this computer.
 
@@ -54,6 +55,8 @@ Diagnostics explain:
 - partial scans, when StackDrop pauses a large root after the timeout to keep the app responsive
 
 Failed parses do not break filename or path search. Those files can still be found by name/path, but their content may not be searchable.
+
+Repeat scans still discover supported files and compare local metadata, but files that are already successfully indexed and have the same path, size, and modified timestamp are not read or parsed again.
 
 If a scan pauses before all discovered files are processed, click **Re-scan this folder** or **Index library** to retry indexing. Re-scans prioritize files that were not indexed yet, but StackDrop does not currently store an exact resume cursor.
 
@@ -117,6 +120,6 @@ Generated `target/` output and installers are local build artifacts and are not 
 
 ## Release Workflow
 
-GitHub Releases are the distribution path for normal users. A version tag such as `v2.1.3` builds Windows installers in GitHub Actions and attaches the NSIS `.exe` and MSI `.msi` artifacts to the release.
+GitHub Releases are the distribution path for normal users. A version tag such as `v2.1.4` builds Windows installers in GitHub Actions and attaches the NSIS `.exe` and MSI `.msi` artifacts to the release.
 
 See [docs/RELEASE.md](docs/RELEASE.md) for the release checklist.

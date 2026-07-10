@@ -1,6 +1,6 @@
 # StackDrop Guardrails
 
-Version: v1.3 (core document types)
+Version: v2.1.4
 Status: Active
 Date: 2026-05-12
 
@@ -27,7 +27,8 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 - **No placeholder logic** on indexing, scan, persistence, or search success paths.
 - **No silent parse failures** — `parse_status` / `parse_error` must reflect reality in DB and UI.
 - **Never delete or mutate user files on disk** from StackDrop.
-- Supported extensions in product code and schema: **`.txt`**, **`.pdf`**, **`.docx`** only (stored as `txt` \| `pdf` \| `docx`).
+- Supported extensions in product code and schema: **`.txt`**, **`.pdf`**, **`.docx`**, **`.doc`** (stored as `txt` \| `pdf` \| `docx` \| `doc`).
+- Repeat scans must not re-read or re-parse unchanged healthy files.
 - Deterministic validation before heuristics (query normalization, path-under-root checks).
 - Core flows expose **idle / scanning / completed / completed-with-errors** (or equivalent) where applicable.
 
@@ -80,5 +81,5 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 ## 10. Definition of done (v1)
 
 - PRD must-haves implemented and evidenced.
-- README lists supported types (`.txt`, `.pdf`, `.docx`) and honest limitations (e.g. PDF text layer).
+- README lists supported types (`.txt`, `.pdf`, `.docx`, `.doc`) and honest limitations.
 - No guardrail violations on the checklist above.
