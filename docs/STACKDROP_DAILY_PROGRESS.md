@@ -132,5 +132,5 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 ## Git, merge, release, or deployment actions
 
-- Committed the isolated progress record on `main` as `2004f97` (`docs: record roadmap verification baselines`).
-- Pushed the amended baseline commit to `origin/main` with a normal non-force push. No merge, release, or deployment was required for this documentation-only baseline unit.
+- Committed the isolated progress record on `main` with message `docs: record roadmap verification baselines`.
+- Pushed the baseline documentation commits to `origin/main` with normal non-force pushes. No merge, release, or deployment was required for this documentation-only baseline unit.
