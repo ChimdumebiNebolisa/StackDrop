@@ -1,15 +1,15 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-11
+Last updated: 2026-07-12
 Current roadmap phase: Phase 1 - Baselines and system inventory
-Current in-progress work unit: None; next is 1.2 Record current search accuracy behavior
+Current in-progress work unit: None; next is 1.3 Add or document representative deterministic latency fixtures
 
 ## Ordered work-unit checklist
 
 ### Phase 1 - Baselines and system inventory
 
 - [x] 1.1 Establish TypeScript, frontend, Rust, build, formatting, lint, unit, E2E, and packaging baselines.
-- [ ] 1.2 Record current search accuracy behavior.
+- [x] 1.2 Record current search accuracy behavior.
 - [ ] 1.3 Add or document representative deterministic latency fixtures.
 - [ ] 1.4 Inventory every supported-extension declaration or assumption.
 - [ ] 1.5 Map database schema and migration implications for ranking, metadata, and file-type expansion.
@@ -78,15 +78,17 @@ Current in-progress work unit: None; next is 1.2 Record current search accuracy 
 ## Completed work units
 
 - 1.1 Establish verification baselines (2026-07-11). TypeScript, unit/integration, frontend build, E2E, Rust tests, formatting, and Windows packaging pass. Strict Clippy has four existing findings. No JavaScript/TypeScript lint command is configured.
+- 1.2 Record current search accuracy behavior (2026-07-12). Added `docs/SEARCH_ACCURACY_BASELINE.md`, tracing `queryDocuments` to `DocumentSearchRepository`, SQLite FTS ranking, prefix/fallback behavior, filters, snippets, coverage, and known gaps. Verified with the focused search accuracy suite: 1 file and 22 tests passed.
 
 ## Current work-unit blast radius
 
-Completed work unit 1.1 was evidence-only. It ran existing verification commands and recorded their current results. It did not change producers, consumers, schemas, migrations, parsers, query behavior, UI behavior, packaging configuration, or runtime documentation. The only intentional repository change is this progress record. Existing modified proof screenshots are user-owned and excluded from this work; Playwright's existing proof test writes those same paths, so their contents remain outside this run's staging scope.
+Completed work unit 1.2 was evidence/documentation only. It traced the existing search producer-to-consumer path from `queryDocuments` through `DocumentSearchRepository`, SQLite FTS, fallback matching, filters, snippets, and the React result surface. No query semantics, schemas, migrations, parsers, UI behavior, packaging, or generated files were changed. Existing modified proof screenshots, Tauri schemas, and `src-tauri/Cargo.toml` are user-owned/unrelated and remain outside this run's staging scope.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
+- Phase 5 search semantic improvements remain deferred; the new baseline document records current behavior and known gaps without changing ranking.
 
 ## Blockers
 
@@ -94,6 +96,10 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 ## Commands executed
 
+- 2026-07-12: `git status --short` - exit 0; observed pre-existing modified proof screenshots, `src-tauri/Cargo.toml`, and generated Tauri schema files.
+- 2026-07-12: Repository/documentation inspection commands for `AGENTS.md`, `README.md`, architecture docs, database docs, API docs, QA audit, package manifests, search code, and search tests - exit 0 except one exploratory `rg` command exited 1 because the non-existent top-level `tests` path was included; it still returned repository search matches.
+- 2026-07-12: `npm run test -- src/tests/unit/searchAccuracy.test.ts` - exit 0; 1 test file and 22 tests passed. Run before documentation edits and again after self-review.
+- 2026-07-12: `git diff --check` - exit 0; no whitespace errors. Git emitted line-ending warnings for existing Windows checkout behavior.
 - `git status --short` - exit 0; four pre-existing modified proof screenshots observed.
 - Repository/documentation inspection commands - exit 0 except the first memory lookup, which exited 1 because `CODEX_HOME` was unset; the configured path was then checked directly and no prior memory existed.
 - Initial parallel baseline orchestration - timed out after about 244 seconds before returning individual results; treated as inconclusive and rerun individually.
@@ -109,6 +115,8 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 ## Verification results
 
+- 2026-07-12: Passing targeted search baseline verification: 22 Vitest tests in `src/tests/unit/searchAccuracy.test.ts`.
+- 2026-07-12: Passing diff hygiene: `git diff --check`.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
@@ -116,12 +124,14 @@ None. Baseline failures are recorded below rather than treated as blockers.
 ## Important architectural decisions
 
 - Preserve the local-only Tauri + React + SQLite/FTS5 architecture.
-- Treat the four modified `docs/proof-screenshots/*.png` files as unrelated user work.
+- Treat the modified `docs/proof-screenshots/*.png`, `src-tauri/Cargo.toml`, and generated Tauri schema files as unrelated user work.
 - Do not fix baseline findings inside an evidence-only work unit; retain them as evidence for their ordered roadmap work.
+- Treat 1.2 as a recorded baseline rather than a search behavior change. Later Phase 5 units must update the baseline/contract when ranking semantics change.
 
 ## Files or systems affected
 
-- `docs/STACKDROP_DAILY_PROGRESS.md` only as an intentional source change.
+- `docs/SEARCH_ACCURACY_BASELINE.md` added as the recorded current search behavior.
+- `docs/STACKDROP_DAILY_PROGRESS.md` updated with 1.2 evidence and next work unit.
 - Local ignored build outputs under `dist/` and `src-tauri/target/` were produced by verification.
 
 ## Known platform-specific behavior that remains unverified
@@ -132,5 +142,6 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 ## Git, merge, release, or deployment actions
 
+- 2026-07-12: Committed the documentation-only 1.2 work unit on `main` with message `docs: record search accuracy baseline`. Push pending after amend/status review. No merge, release, or deployment is required.
 - Committed the isolated progress record on `main` with message `docs: record roadmap verification baselines`.
 - Pushed the baseline documentation commits to `origin/main` with normal non-force pushes. No merge, release, or deployment was required for this documentation-only baseline unit.
