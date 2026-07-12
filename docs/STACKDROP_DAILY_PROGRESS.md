@@ -142,6 +142,6 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 ## Git, merge, release, or deployment actions
 
-- 2026-07-12: Committed the documentation-only 1.2 work unit on `main` with message `docs: record search accuracy baseline`. Push pending after amend/status review. No merge, release, or deployment is required.
+- 2026-07-12: Committed the documentation-only 1.2 work unit on `main` as `09d8fae` with message `docs: record search accuracy baseline`, then pushed `main` to `origin` (`6e88824..09d8fae`). No merge, release, or deployment was required.
 - Committed the isolated progress record on `main` with message `docs: record roadmap verification baselines`.
 - Pushed the baseline documentation commits to `origin/main` with normal non-force pushes. No merge, release, or deployment was required for this documentation-only baseline unit.
