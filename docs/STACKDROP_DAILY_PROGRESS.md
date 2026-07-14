@@ -1,8 +1,8 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-13
+Last updated: 2026-07-14
 Current roadmap phase: Phase 1 - Baselines and system inventory
-Current in-progress work unit: None; next is 1.4 Inventory every supported-extension declaration or assumption
+Current in-progress work unit: None; next is 1.5 Map database schema and migration implications for ranking, metadata, and file-type expansion
 
 ## Ordered work-unit checklist
 
@@ -11,7 +11,7 @@ Current in-progress work unit: None; next is 1.4 Inventory every supported-exten
 - [x] 1.1 Establish TypeScript, frontend, Rust, build, formatting, lint, unit, E2E, and packaging baselines.
 - [x] 1.2 Record current search accuracy behavior.
 - [x] 1.3 Add or document representative deterministic latency fixtures.
-- [ ] 1.4 Inventory every supported-extension declaration or assumption.
+- [x] 1.4 Inventory every supported-extension declaration or assumption.
 - [ ] 1.5 Map database schema and migration implications for ranking, metadata, and file-type expansion.
 - [ ] 1.6 Create the initial producer-to-consumer architecture and blast-radius map.
 
@@ -80,14 +80,16 @@ Current in-progress work unit: None; next is 1.4 Inventory every supported-exten
 - 1.1 Establish verification baselines (2026-07-11). TypeScript, unit/integration, frontend build, E2E, Rust tests, formatting, and Windows packaging pass. Strict Clippy has four existing findings. No JavaScript/TypeScript lint command is configured.
 - 1.2 Record current search accuracy behavior (2026-07-12). Added `docs/SEARCH_ACCURACY_BASELINE.md`, tracing `queryDocuments` to `DocumentSearchRepository`, SQLite FTS ranking, prefix/fallback behavior, filters, snippets, coverage, and known gaps. Verified with the focused search accuracy suite: 1 file and 22 tests passed.
 - 1.3 Add or document representative deterministic latency fixtures (2026-07-13). Added generated in-memory search-latency fixture definitions in `src/tests/fixtures/searchLatencyFixtures.ts`, focused verification in `src/tests/unit/searchLatencyFixtures.test.ts`, and documentation in `docs/SEARCH_LATENCY_FIXTURES.md`. The fixture covers exact filename, prefix, relative path, body-only, and filename/path fallback query paths without changing runtime search semantics. Verified with focused fixture tests, adjacent search accuracy tests, and TypeScript typecheck.
+- 1.4 Inventory every supported-extension declaration or assumption (2026-07-14). Added `docs/SUPPORTED_EXTENSION_INVENTORY.md`, tracing the current `txt` / `pdf` / `docx` / `doc` assumptions across Rust discovery, native OCR/DOC commands, TypeScript types, parser dispatch, scan persistence, watcher filtering, SQLite schema/migrations, repositories, UI filters, diagnostics, tests, fixtures, and docs. Verified with focused watch/scan/parser tests, TypeScript typecheck, and diff hygiene.
 
 ## Current work-unit blast radius
 
-Completed work unit 1.3 is limited to representative deterministic search-latency fixture definitions, fixture documentation, focused tests, and this progress record. It traces the existing `queryDocuments` -> `DocumentSearchRepository` -> SQLite FTS/fallback path using generated in-memory rows. It does not change runtime search ranking, discovery, watcher behavior, parsers, UI, schemas, migrations, packaging, generated files, or the user-owned modified proof screenshots/Tauri files already present in the worktree.
+Completed work unit 1.4 was limited to inventory documentation and this progress record. It traced supported-extension declarations and assumptions from Rust discovery, watcher filtering, parser dispatch, SQLite schema/migrations, query filters, UI filter options, diagnostics copy, tests, fixtures, and user/developer documentation. It did not change runtime discovery, watcher behavior, parsers, search ranking, UI behavior, schemas, migrations, packaging, generated files, lockfiles, screenshots, or the pre-existing modified Tauri files already present in the worktree.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
+- Phase 2 canonical registry work remains deferred; 1.4 inventories drift risks but intentionally does not replace the handwritten lists.
 - Larger 10,000-document and 100,000-document generated corpora remain deferred to Phase 6 performance work; this unit defines a small representative corpus and does not commit generated databases or latency thresholds.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
 - Phase 5 search semantic improvements remain deferred; the new baseline document records current behavior and known gaps without changing ranking.
@@ -107,6 +109,12 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-13: `npm run test -- src/tests/unit/searchAccuracy.test.ts` - exit 0; 1 test file and 22 tests passed as the baseline command before edits and again after fixture edits.
 - 2026-07-13: `npm run test -- src/tests/unit/searchLatencyFixtures.test.ts` - exit 0; first pass 1 file and 2 tests passed, then rerun after self-review timestamp fix with 1 file and 2 tests passed.
 - 2026-07-13: `npm run typecheck` - exit 0.
+- 2026-07-14: `git status --short` - exit 0; observed pre-existing modified proof screenshots, `src-tauri/Cargo.toml`, and generated Tauri schema files before this run's edits.
+- 2026-07-14: Required inspection commands for `AGENTS.md`, `README.md`, architecture docs, database/API docs, package/Cargo manifests, relevant source, tests, migrations, workflows, and extension searches - exit 0 except broad exploratory `rg` commands exited 1 when invalid/missing glob paths were included while still returning relevant matches; narrowed follow-up reads succeeded.
+- 2026-07-14: `npm run test -- src/tests/unit/watchIndexedFolders.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/parseDiscoveredFile.test.ts` - exit 0 before edits; 3 files and 30 tests passed.
+- 2026-07-14: `npm run test -- src/tests/unit/watchIndexedFolders.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/parseDiscoveredFile.test.ts` - exit 0 after inventory/self-review; 3 files and 30 tests passed.
+- 2026-07-14: `npm run typecheck` - exit 0.
+- 2026-07-14: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior.
 - `git status --short` - exit 0; four pre-existing modified proof screenshots observed.
 - Repository/documentation inspection commands - exit 0 except the first memory lookup, which exited 1 because `CODEX_HOME` was unset; the configured path was then checked directly and no prior memory existed.
 - Initial parallel baseline orchestration - timed out after about 244 seconds before returning individual results; treated as inconclusive and rerun individually.
@@ -127,6 +135,9 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-13: Passing focused fixture verification: 2 Vitest tests in `src/tests/unit/searchLatencyFixtures.test.ts`.
 - 2026-07-13: Passing adjacent search verification: 22 Vitest tests in `src/tests/unit/searchAccuracy.test.ts`.
 - 2026-07-13: Passing TypeScript typecheck.
+- 2026-07-14: Passing focused extension-adjacent verification: 30 Vitest tests across watcher, folder scan, and parser routing suites.
+- 2026-07-14: Passing TypeScript typecheck.
+- 2026-07-14: Passing diff hygiene with only line-ending warnings.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
@@ -138,14 +149,17 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Do not fix baseline findings inside an evidence-only work unit; retain them as evidence for their ordered roadmap work.
 - Treat 1.2 as a recorded baseline rather than a search behavior change. Later Phase 5 units must update the baseline/contract when ranking semantics change.
 - Treat 1.3 as a deterministic fixture definition rather than a benchmark. Do not add latency thresholds until Phase 6 measurement work defines corpus size, environment controls, and acceptable limits.
+- Treat 1.4 as an inventory rather than the Phase 2 registry design. The current effective extension set remains `txt`, `pdf`, `docx`, and `doc`; no new format support is claimed.
+- Record `.doc` as a native-only parser path: it is supported through `parseDiscoveredFile` and `extract_doc_text_under_root`, not through browser-safe `parseFileContent`.
 
 ## Files or systems affected
 
 - `docs/SEARCH_ACCURACY_BASELINE.md` added as the recorded current search behavior.
 - `docs/SEARCH_LATENCY_FIXTURES.md` added as the representative deterministic search-latency fixture description.
+- `docs/SUPPORTED_EXTENSION_INVENTORY.md` added as the supported-extension declaration and assumption inventory.
 - `src/tests/fixtures/searchLatencyFixtures.ts` added as generated in-memory fixture data for search-latency work.
 - `src/tests/unit/searchLatencyFixtures.test.ts` added to verify fixture determinism and coverage of current search paths.
-- `docs/STACKDROP_DAILY_PROGRESS.md` updated with 1.2 evidence and next work unit.
+- `docs/STACKDROP_DAILY_PROGRESS.md` updated with 1.4 evidence and next work unit.
 - Local ignored build outputs under `dist/` and `src-tauri/target/` were produced by verification.
 
 ## Known platform-specific behavior that remains unverified
@@ -154,6 +168,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Linux and macOS builds/packages were not verified in this Windows environment.
 - Installer execution/smoke behavior was not tested; this unit established package generation only.
 - No actual latency measurements were taken in 1.3; future Phase 6 work must measure timing under documented environment conditions.
+- No Linux/macOS extension-discovery behavior was verified during 1.4; the inventory is based on source inspection and Windows-hosted targeted tests.
 
 ## Git, merge, release, or deployment actions
 
