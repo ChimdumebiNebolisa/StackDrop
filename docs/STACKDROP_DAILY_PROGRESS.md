@@ -174,5 +174,6 @@ None. Baseline failures are recorded below rather than treated as blockers.
 
 - 2026-07-12: Committed the documentation-only 1.2 work unit on `main` as `09d8fae` with message `docs: record search accuracy baseline`, then pushed `main` to `origin` (`6e88824..09d8fae`). No merge, release, or deployment was required.
 - 2026-07-13: Committed the 1.3 fixture/test/documentation work unit on `main` with message `test: add deterministic search latency fixtures`; push to `origin/main` performed after the commit. No merge, release, or deployment was required for this fixture/test/documentation unit.
+- 2026-07-14: Committed the 1.4 inventory documentation work unit on `main` as `9d774b5` with message `docs: inventory supported extension declarations`, then pushed `main` to `origin` (`44ee5c2..9d774b5`). No merge, release, or deployment was required for this documentation-only inventory unit.
 - Committed the isolated progress record on `main` with message `docs: record roadmap verification baselines`.
 - Pushed the baseline documentation commits to `origin/main` with normal non-force pushes. No merge, release, or deployment was required for this documentation-only baseline unit.
