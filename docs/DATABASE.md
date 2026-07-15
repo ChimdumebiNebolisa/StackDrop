@@ -1,6 +1,6 @@
 # StackDrop database model
 
-Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime migrations: [`src/data/db/migrate.ts`](../src/data/db/migrate.ts).
+Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime migrations: [`src/data/db/migrate.ts`](../src/data/db/migrate.ts). Schema and migration roadmap implications are mapped in [`docs/DATABASE_SCHEMA_MIGRATION_MAP.md`](DATABASE_SCHEMA_MIGRATION_MAP.md).
 
 ## Tables
 
