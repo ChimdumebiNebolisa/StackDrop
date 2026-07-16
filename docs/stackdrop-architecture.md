@@ -4,6 +4,8 @@ Version: v2.1.4
 Status: Active architecture notes
 Date: 2026-07-10
 
+For the current producer-to-consumer flow and roadmap blast-radius checklist, see [`PRODUCER_CONSUMER_ARCHITECTURE.md`](PRODUCER_CONSUMER_ARCHITECTURE.md).
+
 ## 1. Architecture goal
 
 Define boundaries for a **local-first**, **single-user** desktop app that:

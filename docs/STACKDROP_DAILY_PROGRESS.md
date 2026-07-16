@@ -1,8 +1,8 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-15
+Last updated: 2026-07-16
 Current roadmap phase: Phase 1 - Baselines and system inventory
-Current in-progress work unit: None; next is 1.6 Create the initial producer-to-consumer architecture and blast-radius map
+Current in-progress work unit: None; next is 2.1 Design the registry and generation boundary
 
 ## Ordered work-unit checklist
 
@@ -13,7 +13,7 @@ Current in-progress work unit: None; next is 1.6 Create the initial producer-to-
 - [x] 1.3 Add or document representative deterministic latency fixtures.
 - [x] 1.4 Inventory every supported-extension declaration or assumption.
 - [x] 1.5 Map database schema and migration implications for ranking, metadata, and file-type expansion.
-- [ ] 1.6 Create the initial producer-to-consumer architecture and blast-radius map.
+- [x] 1.6 Create the initial producer-to-consumer architecture and blast-radius map.
 
 ### Phase 2 - Canonical file-type capability registry
 
@@ -82,16 +82,18 @@ Current in-progress work unit: None; next is 1.6 Create the initial producer-to-
 - 1.3 Add or document representative deterministic latency fixtures (2026-07-13). Added generated in-memory search-latency fixture definitions in `src/tests/fixtures/searchLatencyFixtures.ts`, focused verification in `src/tests/unit/searchLatencyFixtures.test.ts`, and documentation in `docs/SEARCH_LATENCY_FIXTURES.md`. The fixture covers exact filename, prefix, relative path, body-only, and filename/path fallback query paths without changing runtime search semantics. Verified with focused fixture tests, adjacent search accuracy tests, and TypeScript typecheck.
 - 1.4 Inventory every supported-extension declaration or assumption (2026-07-14). Added `docs/SUPPORTED_EXTENSION_INVENTORY.md`, tracing the current `txt` / `pdf` / `docx` / `doc` assumptions across Rust discovery, native OCR/DOC commands, TypeScript types, parser dispatch, scan persistence, watcher filtering, SQLite schema/migrations, repositories, UI filters, diagnostics, tests, fixtures, and docs. Verified with focused watch/scan/parser tests, TypeScript typecheck, and diff hygiene.
 - 1.5 Map database schema and migration implications (2026-07-15). Added `docs/DATABASE_SCHEMA_MIGRATION_MAP.md`, tracing the current schema contract, document/FTS flow, query-time ranking, metadata dependencies, file-type expansion constraints, migration paths, index consumers, and transactional consistency implications. Linked it from `docs/DATABASE.md`. Verified with focused migration, diagnostics, repository, search, and folder-scan tests plus diff hygiene.
+- 1.6 Create the initial producer-to-consumer architecture and blast-radius map (2026-07-16). Added `docs/PRODUCER_CONSUMER_ARCHITECTURE.md`, tracing manual indexing, background watcher indexing, parser routing, filesystem boundaries, SQLite metadata, FTS sync, query/ranking, diagnostics, UI consumers, and roadmap blast-radius risks. Linked it from `docs/stackdrop-architecture.md`. Verified with focused scan/search/diagnostics/watcher/parser tests plus diff hygiene.
 
 ## Current work-unit blast radius
 
-Completed work unit 1.5 was limited to schema and migration documentation plus this progress record. It traced `src/data/db/schema.sql`, `src/data/db/migrate.ts`, document/search/folder repositories, scan persistence, diagnostics, migration tests, search ranking tests, and database documentation. It did not change runtime discovery, watcher behavior, parsers, search ranking, UI behavior, schemas, migrations, packaging, generated files, lockfiles, screenshots, or the pre-existing modified Tauri files already present in the worktree.
+Completed work unit 1.6 was documentation-only. It traced the producer-to-consumer indexing, watcher, parser, persistence, FTS, query, diagnostics, and UI surfaces so Phase 2 and later roadmap work can identify required consumers before changing behavior. Edits were limited to `docs/PRODUCER_CONSUMER_ARCHITECTURE.md`, a link from `docs/stackdrop-architecture.md`, this progress record, and automation memory. It did not change runtime discovery, filesystem access, parser dispatch, search ranking, UI behavior, schemas, migrations, generated files, lockfiles, packaging files, screenshots, or the pre-existing modified Tauri files already present in the worktree.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
 - Phase 2 canonical registry work remains deferred; 1.4 inventories drift risks but intentionally does not replace the handwritten lists.
 - Phase 2 schema generation/validation remains deferred; 1.5 documents that extension constraints and migration cleanup must be tied to the future canonical capability data.
+- Phase 2 registry design remains the next incomplete work unit; 1.6 supplies the producer/consumer checklist but intentionally does not design or implement the registry boundary.
 - Larger 10,000-document and 100,000-document generated corpora remain deferred to Phase 6 performance work; this unit defines a small representative corpus and does not commit generated databases or latency thresholds.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
 - Phase 5 search semantic improvements remain deferred; the new baseline document records current behavior and known gaps without changing ranking.
@@ -122,6 +124,11 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-15: `npm run test -- src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/repositories.v1.test.ts` - exit 0 before edits; 4 files and 11 tests passed.
 - 2026-07-15: `npm run test -- src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/repositories.v1.test.ts src/tests/unit/searchAccuracy.test.ts src/tests/integration/folderScan.v1.test.ts` - exit 0 after documentation/self-review; 6 files and 56 tests passed.
 - 2026-07-15: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior.
+- 2026-07-16: `git status --short` - exit 0; observed pre-existing modified proof screenshots, `src-tauri/Cargo.toml`, and generated Tauri schema files before this run's edits.
+- 2026-07-16: Required inspection commands for `AGENTS.md`, `README.md`, architecture docs, API docs, database docs, schema/migration maps, supported-extension inventory, package/Cargo manifests, release workflow, Rust commands, path utilities, folder scan/watch/parser services, search repository, diagnostics service, domain types, and UI consumers - exit 0 except one path-inspection command exited 1 because `src-tauri/src/commands/path_utils.rs` does not exist; the correct file is `src-tauri/src/path_utils.rs`.
+- 2026-07-16: `npm run test -- src/tests/integration/folderScan.v1.test.ts src/tests/unit/searchAccuracy.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/watchIndexedFolders.test.ts src/tests/unit/parseDiscoveredFile.test.ts` - exit 0 before edits; 5 files and 56 tests passed.
+- 2026-07-16: `npm run test -- src/tests/integration/folderScan.v1.test.ts src/tests/unit/searchAccuracy.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/watchIndexedFolders.test.ts src/tests/unit/parseDiscoveredFile.test.ts` - exit 0 after documentation/self-review; 5 files and 56 tests passed.
+- 2026-07-16: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior and pre-existing modified Tauri files.
 - `git status --short` - exit 0; four pre-existing modified proof screenshots observed.
 - Repository/documentation inspection commands - exit 0 except the first memory lookup, which exited 1 because `CODEX_HOME` was unset; the configured path was then checked directly and no prior memory existed.
 - Initial parallel baseline orchestration - timed out after about 244 seconds before returning individual results; treated as inconclusive and rerun individually.
@@ -147,6 +154,9 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-14: Passing diff hygiene with only line-ending warnings.
 - 2026-07-15: Passing focused schema/migration baseline before edits: 11 Vitest tests across migration, diagnostics, and repository suites.
 - 2026-07-15: Passing focused schema/search/scan verification after edits: 56 Vitest tests across migration, diagnostics, repository, search accuracy, and folder-scan suites.
+- 2026-07-16: Passing focused producer-to-consumer baseline before edits: 56 Vitest tests across folder scan, search accuracy, diagnostics, watcher, and parser-routing suites.
+- 2026-07-16: Passing focused producer-to-consumer verification after edits: 56 Vitest tests across folder scan, search accuracy, diagnostics, watcher, and parser-routing suites.
+- 2026-07-16: Passing diff hygiene with only line-ending warnings.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
@@ -162,6 +172,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Record `.doc` as a native-only parser path: it is supported through `parseDiscoveredFile` and `extract_doc_text_under_root`, not through browser-safe `parseFileContent`.
 - Treat 1.5 as a schema/migration map rather than a schema change. Future file-type expansion must update or generate the SQLite `CHECK` constraint and migration cleanup logic from the same capability source as discovery/parser/UI consumers.
 - Treat current ranking as query-time behavior. No persistent ranking metadata, token table, parser version, content hash, or durable scan cursor exists yet.
+- Treat 1.6 as a producer/consumer and blast-radius map rather than a new architecture. It records current behavior, including watcher polling, read containment, parser routing, per-file failure isolation, metadata/FTS sync, diagnostics, and UI consumers without changing implementation.
 
 ## Files or systems affected
 
@@ -170,6 +181,8 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - `docs/SUPPORTED_EXTENSION_INVENTORY.md` added as the supported-extension declaration and assumption inventory.
 - `docs/DATABASE_SCHEMA_MIGRATION_MAP.md` added as the database schema, migration, ranking, metadata, file-type expansion, index, and consistency implication map.
 - `docs/DATABASE.md` linked to the schema/migration map.
+- `docs/PRODUCER_CONSUMER_ARCHITECTURE.md` added as the end-to-end producer-to-consumer architecture and roadmap blast-radius map.
+- `docs/stackdrop-architecture.md` linked to the producer-to-consumer map.
 - `src/tests/fixtures/searchLatencyFixtures.ts` added as generated in-memory fixture data for search-latency work.
 - `src/tests/unit/searchLatencyFixtures.test.ts` added to verify fixture determinism and coverage of current search paths.
 - `docs/STACKDROP_DAILY_PROGRESS.md` updated with 1.4 evidence and next work unit.
@@ -183,6 +196,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - No actual latency measurements were taken in 1.3; future Phase 6 work must measure timing under documented environment conditions.
 - No Linux/macOS extension-discovery behavior was verified during 1.4; the inventory is based on source inspection and Windows-hosted targeted tests.
 - No packaged-app existing-database migration was opened during 1.5; migration behavior was verified through the TypeScript SQLite test harness.
+- No Windows junction, reparse-point, UNC traversal, Linux/macOS discovery, long-running watcher stress, or packaged-app existing-database behavior was newly verified during 1.6; those remain source-inspected or deferred to later platform/security units.
 
 ## Git, merge, release, or deployment actions
 
