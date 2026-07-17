@@ -5,6 +5,7 @@ Status: Active architecture notes
 Date: 2026-07-10
 
 For the current producer-to-consumer flow and roadmap blast-radius checklist, see [`PRODUCER_CONSUMER_ARCHITECTURE.md`](PRODUCER_CONSUMER_ARCHITECTURE.md).
+For the planned file-type capability registry boundary, see [`CAPABILITY_REGISTRY_DESIGN.md`](CAPABILITY_REGISTRY_DESIGN.md).
 
 ## 1. Architecture goal
 
