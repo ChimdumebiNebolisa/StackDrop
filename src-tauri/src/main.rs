@@ -4,6 +4,7 @@ mod commands {
     pub mod file_commands;
 }
 
+pub mod generated_file_capabilities;
 mod path_utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

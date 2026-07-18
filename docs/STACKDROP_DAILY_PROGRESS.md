@@ -1,8 +1,8 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 Current roadmap phase: Phase 2 - Canonical file-type capability registry
-Current in-progress work unit: None; next is 2.2 Add canonical source data and cross-language validation
+Current in-progress work unit: None; next is 2.3 Migrate TypeScript consumers
 
 ## Ordered work-unit checklist
 
@@ -18,7 +18,7 @@ Current in-progress work unit: None; next is 2.2 Add canonical source data and c
 ### Phase 2 - Canonical file-type capability registry
 
 - [x] 2.1 Design the registry and generation boundary.
-- [ ] 2.2 Add canonical source data and cross-language validation.
+- [x] 2.2 Add canonical source data and cross-language validation.
 - [ ] 2.3 Migrate TypeScript consumers.
 - [ ] 2.4 Migrate Rust discovery and watcher consumers.
 - [ ] 2.5 Migrate parser routing and diagnostics.
@@ -84,16 +84,17 @@ Current in-progress work unit: None; next is 2.2 Add canonical source data and c
 - 1.5 Map database schema and migration implications (2026-07-15). Added `docs/DATABASE_SCHEMA_MIGRATION_MAP.md`, tracing the current schema contract, document/FTS flow, query-time ranking, metadata dependencies, file-type expansion constraints, migration paths, index consumers, and transactional consistency implications. Linked it from `docs/DATABASE.md`. Verified with focused migration, diagnostics, repository, search, and folder-scan tests plus diff hygiene.
 - 1.6 Create the initial producer-to-consumer architecture and blast-radius map (2026-07-16). Added `docs/PRODUCER_CONSUMER_ARCHITECTURE.md`, tracing manual indexing, background watcher indexing, parser routing, filesystem boundaries, SQLite metadata, FTS sync, query/ranking, diagnostics, UI consumers, and roadmap blast-radius risks. Linked it from `docs/stackdrop-architecture.md`. Verified with focused scan/search/diagnostics/watcher/parser tests plus diff hygiene.
 - 2.1 Design the registry and generation boundary (2026-07-17). Added `docs/CAPABILITY_REGISTRY_DESIGN.md`, defining the canonical JSON source, required capability fields, current four-format seed entries, checked-in generated artifact targets, validation/generation command boundary, migration order, consumer contract, limits, open implementation decisions, and verification target. Linked it from `docs/stackdrop-architecture.md`. Verified with focused extension/migration-adjacent tests, TypeScript typecheck, and diff hygiene.
+- 2.2 Add canonical source data and cross-language validation (2026-07-18). Added `src/shared/fileCapabilities.json` with the current four active formats only, a single Node generator/validator with `--write` and `--check` modes, checked-in generated TypeScript/Rust/database/documentation artifacts, package scripts for generation/checking, and Rust module exposure so the generated Rust artifact compiles during `cargo test`. Runtime consumers intentionally remain unmigrated until Phase 2.3-2.5. Verified with capability drift validation, TypeScript typecheck, focused extension/migration-adjacent tests, Rust tests, and diff hygiene.
 
 ## Current work-unit blast radius
 
-Completed work unit 2.1 was documentation/specification-only. It designed the Phase 2 registry boundary across Rust discovery, TypeScript types, watcher filtering, parser routing, SQLite schema/migrations, UI filters, diagnostics, tests, and documentation. Edits were limited to `docs/CAPABILITY_REGISTRY_DESIGN.md`, a link from `docs/stackdrop-architecture.md`, this progress record, and automation memory. It did not change runtime discovery, filesystem access, parser dispatch, database schema, migrations, generated files, lockfiles, packaging files, screenshots, or the pre-existing modified Tauri files already present in the worktree.
+Completed 2.2 on 2026-07-18. The new registry and generated artifacts affect source/data contracts only: `src/shared/fileCapabilities.json`, generated TypeScript/Rust/database helpers, generated supported-format documentation, package scripts, and the progress record. Runtime discovery, watcher filtering, parser routing, SQLite schema/migrations, search/query behavior, diagnostics, UI filters, Tauri capabilities, packaging, and existing handwritten consumer lists are unchanged until later Phase 2 migration units.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
-- Phase 2 canonical registry implementation remains deferred; 2.1 designs the boundary but intentionally does not add the JSON registry, generator, validation command, generated files, or migrated consumers.
-- Phase 2 schema generation/validation remains deferred; 2.1 documents that extension constraints and migration cleanup must be tied to the future canonical capability data.
+- Phase 2 consumer migration remains deferred; 2.2 adds source data and validation but intentionally does not migrate TypeScript consumers, watcher filtering, Rust discovery, parser routing, SQLite schema/migrations, UI filters, or diagnostics.
+- Phase 2 schema consumption remains deferred; 2.2 generates database SQL-helper constants but does not rewrite `schema.sql` or migration cleanup logic.
 - Larger 10,000-document and 100,000-document generated corpora remain deferred to Phase 6 performance work; this unit defines a small representative corpus and does not commit generated databases or latency thresholds.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
 - Phase 5 search semantic improvements remain deferred; the new baseline document records current behavior and known gaps without changing ranking.
@@ -137,6 +138,16 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-17: `npm run test -- src/tests/unit/watchIndexedFolders.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts` - exit 0 after self-review corrections; 5 files and 35 tests passed.
 - 2026-07-17: `npm run typecheck` - exit 0 after self-review corrections.
 - 2026-07-17: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior and pre-existing modified Tauri files.
+- 2026-07-18: `git status --short` - exit 0; observed pre-existing modified proof screenshots, `src-tauri/Cargo.toml`, and generated Tauri schema files before this run's edits.
+- 2026-07-18: Required inspection commands for automation memory, `AGENTS.md`, `README.md`, architecture docs, capability registry design, supported-extension inventory, producer-to-consumer map, package/Cargo manifests, source extension consumers, migrations, workflows, and relevant tests - exit 0.
+- 2026-07-18: `npm run test -- src/tests/unit/watchIndexedFolders.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts` - exit 0 before edits; 5 files and 35 tests passed.
+- 2026-07-18: `node scripts/validate-file-capabilities.mjs --check` - exit 0 after implementation; validated 4 file capabilities and 4 generated artifacts.
+- 2026-07-18: `npm run typecheck` - exit 0 after implementation.
+- 2026-07-18: `npm run test -- src/tests/unit/watchIndexedFolders.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts` - exit 0 after implementation; 5 files and 35 tests passed.
+- 2026-07-18: `cargo test` - first run timed out at 120 seconds after reporting 16 tests passed; treated as inconclusive and rerun with a longer timeout.
+- 2026-07-18: `cargo test` - exit 0 after self-review module exposure; 16 Rust tests passed and generated Rust artifact compiled.
+- 2026-07-18: `npm run check:file-capabilities` - exit 0; validated 4 file capabilities and 4 generated artifacts through the package script.
+- 2026-07-18: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior and pre-existing modified Tauri files.
 - `git status --short` - exit 0; four pre-existing modified proof screenshots observed.
 - Repository/documentation inspection commands - exit 0 except the first memory lookup, which exited 1 because `CODEX_HOME` was unset; the configured path was then checked directly and no prior memory existed.
 - Initial parallel baseline orchestration - timed out after about 244 seconds before returning individual results; treated as inconclusive and rerun individually.
@@ -169,6 +180,11 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-17: Passing focused extension/migration-adjacent verification after self-review corrections: 35 Vitest tests across watcher, folder scan, parser routing, and migration suites.
 - 2026-07-17: Passing TypeScript typecheck.
 - 2026-07-17: Passing diff hygiene with only line-ending warnings.
+- 2026-07-18: Passing capability validation: `node scripts/validate-file-capabilities.mjs --check` and `npm run check:file-capabilities` both validated 4 capabilities and 4 generated artifacts.
+- 2026-07-18: Passing TypeScript typecheck.
+- 2026-07-18: Passing focused extension/migration-adjacent verification: 35 Vitest tests across watcher, folder scan, parser routing, and migration suites.
+- 2026-07-18: Passing Rust verification: 16 tests passed; generated Rust capability artifact is compiled through the crate root.
+- 2026-07-18: Passing diff hygiene with only line-ending warnings.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
@@ -188,6 +204,8 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Treat 2.1 as a design boundary rather than an active registry. The next unit should add canonical JSON, generated artifacts, and a validation command before any runtime consumer migration.
 - Use a committed JSON file as the canonical capability source, checked-in generated Rust/TypeScript/database/doc artifacts, and one Node validation/generation script with `--write` and `--check` modes.
 - Keep the initial registry entries limited to current active formats: `txt`, `pdf`, `docx`, and `doc`. Tier 1 formats remain absent until their vertical slices are implemented.
+- Treat 2.2 as source-data and drift-validation infrastructure rather than runtime consumer migration. Existing handwritten lists are still active until the ordered Phase 2 migration units replace them.
+- Compile the generated Rust artifact by exposing it as a crate-root module, but do not call it from Rust discovery until the Rust consumer migration slice.
 
 ## Files or systems affected
 
@@ -200,6 +218,11 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - `docs/stackdrop-architecture.md` linked to the producer-to-consumer map.
 - `docs/CAPABILITY_REGISTRY_DESIGN.md` added as the canonical file-type capability registry and generation-boundary design.
 - `docs/stackdrop-architecture.md` linked to the capability registry design.
+- `src/shared/fileCapabilities.json` added as the canonical source for the current active `txt`, `pdf`, `docx`, and `doc` capabilities.
+- `scripts/validate-file-capabilities.mjs` added as the shared generator/validator with `--write` and `--check` modes.
+- `src/domain/documents/generatedFileCapabilities.ts`, `src/data/db/generatedFileCapabilities.ts`, `src-tauri/src/generated_file_capabilities.rs`, and `docs/generated/supported-formats.md` added as checked-in generated artifacts.
+- `package.json` added `check:file-capabilities` and `generate:file-capabilities` scripts.
+- `src-tauri/src/main.rs` exposes the generated Rust module for compilation validation.
 - `src/tests/fixtures/searchLatencyFixtures.ts` added as generated in-memory fixture data for search-latency work.
 - `src/tests/unit/searchLatencyFixtures.test.ts` added to verify fixture determinism and coverage of current search paths.
 - `docs/STACKDROP_DAILY_PROGRESS.md` updated with 1.4 evidence and next work unit.
@@ -215,6 +238,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - No packaged-app existing-database migration was opened during 1.5; migration behavior was verified through the TypeScript SQLite test harness.
 - No Windows junction, reparse-point, UNC traversal, Linux/macOS discovery, long-running watcher stress, or packaged-app existing-database behavior was newly verified during 1.6; those remain source-inspected or deferred to later platform/security units.
 - No generated registry artifacts, Rust/TypeScript drift validation command, schema generation, Linux/macOS discovery behavior, packaged-app migration, or runtime consumer migration was verified during 2.1; those remain deferred to Phase 2 implementation units.
+- No runtime consumer migration, schema rewrite, migration rewrite, UI filter rewrite, Linux/macOS discovery behavior, packaged-app migration, or generated documentation inclusion in README was verified during 2.2; those remain deferred to later Phase 2 and Phase 8 units.
 
 ## Git, merge, release, or deployment actions
 

@@ -1,0 +1,51 @@
+[
+  {
+    "extension": "txt",
+    "displayLabel": "Text",
+    "parserId": "txt-utf8",
+    "mimeHints": ["text/plain"],
+    "maxFileSizeBytes": 52428800,
+    "ocr": {
+      "supported": false
+    },
+    "parseRuntime": "browser",
+    "defaultEnabled": true
+  },
+  {
+    "extension": "pdf",
+    "displayLabel": "PDF",
+    "parserId": "pdf-text",
+    "mimeHints": ["application/pdf"],
+    "maxFileSizeBytes": 52428800,
+    "ocr": {
+      "supported": true,
+      "parserId": "pdf-ocr"
+    },
+    "parseRuntime": "hybrid",
+    "defaultEnabled": true
+  },
+  {
+    "extension": "docx",
+    "displayLabel": "Word document",
+    "parserId": "docx-mammoth",
+    "mimeHints": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    "maxFileSizeBytes": 52428800,
+    "ocr": {
+      "supported": false
+    },
+    "parseRuntime": "browser",
+    "defaultEnabled": true
+  },
+  {
+    "extension": "doc",
+    "displayLabel": "Legacy Word document",
+    "parserId": "doc-antiword",
+    "mimeHints": ["application/msword"],
+    "maxFileSizeBytes": 52428800,
+    "ocr": {
+      "supported": false
+    },
+    "parseRuntime": "native",
+    "defaultEnabled": true
+  }
+]
