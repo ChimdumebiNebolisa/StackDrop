@@ -4,10 +4,10 @@ StackDrop uses **Vite** env flags only where needed for automation.
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `VITE_E2E_SQLITE` | Playwright / CI | When set to `1`, the app uses an in-memory **sql.js** database and `window.__STACKDROP_E2E__` shims instead of real Tauri invokes for filesystem operations. See [`playwright.config.ts`](../playwright.config.ts). |
+| `VITE_E2E_SQLITE` | Playwright / CI | When set to `1`, the app uses an in-memory **sql.js** database and `window.__STACKDROP_E2E__` shims instead of real Tauri invokes for filesystem, credential, and summary operations. See [`playwright.config.ts`](../playwright.config.ts). |
 | *(built-in)* `import.meta.env.DEV` | Dev server | Enables verbose `logDebug` output in [`src/lib/log.ts`](../src/lib/log.ts). |
 
-**Secrets:** none required. Do not put API keys in `VITE_*` variables (they would ship to the client bundle). This app does not call remote backends.
+**Secrets:** no development environment secret is required. Do not put OpenAI keys in `VITE_*`, `.env`, or `.env.local`; Vite values ship in the client bundle and StackDrop intentionally does not read environment keys. Users enter their key in Settings, and native Rust stores it in Windows Credential Manager. Automated web tests use fake in-memory hooks and never call OpenAI.
 
 ## Cloud agent bootstrap
 

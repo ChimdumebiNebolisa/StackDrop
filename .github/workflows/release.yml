@@ -108,7 +108,7 @@ jobs:
           body: |
             ## StackDrop ${{ env.RELEASE_TAG }}
 
-            StackDrop is a local-first Windows desktop document search app. It indexes supported files on your computer and does not upload your documents.
+            StackDrop is a local-first Windows desktop document search app. Indexing and search stay on your computer. Its optional BYOK summary feature sends bounded prepared text from one selected document to OpenAI only after you choose **Generate summary**; it never uploads the source file.
 
             ### Install
 

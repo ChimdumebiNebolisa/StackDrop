@@ -4,7 +4,7 @@
 
 ### Overview
 
-StackDrop is a local-first Tauri v2 + React desktop document indexer. SQLite + FTS5 powers search and document metadata. No external services, no cloud APIs, no auth.
+StackDrop is a local-first Tauri v2 + React desktop document indexer. SQLite + FTS5 powers search and document metadata. Indexing and search remain local, and there is no account or auth system. The only remote product boundary is an optional, explicit selected-document summary request using the user's own OpenAI API key.
 
 ### Development modes
 
@@ -27,6 +27,9 @@ StackDrop is a local-first Tauri v2 + React desktop document indexer. SQLite + F
 - System packages required for Tauri Linux builds/tests: `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, `libjavascriptcoregtk-4.1-dev`.
 - Optional system packages for full doc parsing: `antiword`, `tesseract-ocr`, `poppler-utils`.
 - Playwright needs Chromium installed: `npx playwright install chromium`.
+- Document summaries must remain opt-in: only prepared extracted text from the selected document plus filename, relative path, and extension may be transmitted after **Generate summary** is chosen.
+- OpenAI credentials must be stored and retrieved through native OS credential storage. Never return a saved key to JavaScript or persist it in SQLite, browser storage, configuration, or environment files.
+- Automated tests must mock credential access and OpenAI requests through `window.__STACKDROP_E2E__`; tests must never call the real API.
 
 ### Standard commands reference
 

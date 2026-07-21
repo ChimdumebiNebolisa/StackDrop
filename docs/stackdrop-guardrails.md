@@ -19,7 +19,8 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 - **UI** must not recursively scan the filesystem or read arbitrary paths.
 - **UI** must not write SQLite directly (use services / documented composition root).
 - Path canonicalization and **root containment** for reads live in **Tauri** (or dedicated infra used only from services).
-- No remote backend, cloud SDK, auth, sync, or AI imports in product code paths.
+- No remote backend, auth, sync, or AI product path except the documented native OpenAI selected-document summary boundary.
+- Indexing and search remain local. Summary transmission requires the explicit **Generate summary** action and is never automatic or background work.
 
 ## 4. Implementation rules
 
@@ -31,6 +32,9 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 - Repeat scans must not re-read or re-parse unchanged healthy files.
 - Deterministic validation before heuristics (query normalization, path-under-root checks).
 - Core flows expose **idle / scanning / completed / completed-with-errors** (or equivalent) where applicable.
+- Summary credentials live only in native OS credential storage on Windows; never in SQLite, browser storage, configuration, or frontend environment variables.
+- Summary requests send only bounded prepared extracted text from the selected document plus filename, relative path, and extension. Never send absolute paths, roots, parse errors, diagnostics, database contents, unrelated documents, or source-file bytes.
+- External requests and credential storage are mocked in automated tests.
 
 ## 5. Verification rules
 
@@ -71,7 +75,7 @@ Enforceable rules for implementing StackDrop v1. A rule is valid only if it can 
 ## 8. Security (Tauri + data)
 
 - Review **capabilities** on every change — minimum necessary permissions.
-- Review path traversal, SQL/FTS injection footguns, secrets (none expected).
+- Review path traversal, SQL/FTS injection footguns, credential handling, prompt injection, response validation, and fixed-origin network behavior.
 
 ## 9. Health
 

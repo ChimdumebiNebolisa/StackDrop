@@ -25,7 +25,7 @@ Indexed scope is **only** paths under these registered roots. StackDrop does **n
 StackDrop v1 is **not**:
 
 - a note-taking app, link saver, or manual-import-first organizer
-- an AI assistant, chatbot, or semantic search product
+- an AI assistant, chatbot, cross-document synthesis tool, or semantic search product; its optional AI scope is one selected-document summary
 - a cloud drive, sync product, or collaboration product
 - a browser extension
 - a system-wide “index everything” crawler
@@ -78,6 +78,14 @@ When I open StackDrop, I click **one button** to refresh my local document index
 - Core flows work **without** any account or remote backend.
 - All index data is stored **locally**.
 
+#### Optional selected-document summaries
+
+- The user may save their own OpenAI API key in Settings through native OS credential storage.
+- An indexed document with extracted text exposes **Summarize**, followed by a separate deliberate **Generate summary** action.
+- Only bounded prepared extracted text from that selected document plus filename, relative path, and extension may be sent.
+- The returned structured summary is validated, shown in a side panel, and kept only in memory.
+- The feature does not change discovery, parsing, indexing, SQLite, FTS search, diagnostics, or file watching.
+
 ### Should-have
 
 - Per-root “Re-scan” for power users (secondary to the primary index action).
@@ -89,7 +97,8 @@ When I open StackDrop, I click **one button** to refresh my local document index
 
 ## 3. Out of scope for v1 (forbidden without PRD update)
 
-- Cloud AI features, cloud indexing, accounts, or content telemetry
+- AI chat, follow-up questions, cross-document synthesis, citations, embeddings, saved summary history, automatic/background AI requests, model/provider selectors, or content telemetry
+- Cloud indexing, accounts, sync, or sharing
 - Semantic/vector search unless a lexical benchmark proves a gap and the implementation stays fully local
 - Always-on background full-disk scan
 - Sync, accounts, sharing, mobile, browser extension
@@ -103,13 +112,16 @@ When I open StackDrop, I click **one button** to refresh my local document index
 - Search matches **file name** and **body**; filters work for folder, extension, parse status.
 - Re-scan updates the index; **removed files** disappear from results after scan.
 - Removing a root from the app does not delete disk files.
-- No login, no cloud, no AI in product paths.
+- No login, cloud indexing, or implicit/background AI in product paths. Indexing and search work without the optional summary feature.
+- Summary credentials use native OS credential storage, and automated tests never access real credentials or OpenAI.
+- Summary generation transmits only the documented prepared selected-document data after explicit consent and never persists the result.
 
 ## 5. Constraints
 
 - Desktop (Tauri) only, single user.
 - Local-only index at rest.
 - Minimum necessary Tauri filesystem permissions; path containment enforced in the shell layer.
+- Optional summary networking uses a fixed native HTTPS boundary and does not expand Tauri capabilities.
 
 ## 6. Success conditions for v1
 

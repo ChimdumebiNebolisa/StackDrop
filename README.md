@@ -1,8 +1,8 @@
 # StackDrop
 
-StackDrop is a local-first Windows desktop app for searching documents on your computer by filename, path, and extracted content.
+StackDrop is a local-first Windows desktop app for searching documents on your computer by filename, path, and extracted content. It can also generate an optional summary of one selected document using your own OpenAI API key.
 
-It is for people who want fast local document search without uploading files, creating an account, or syncing data to a cloud service.
+It is for people who want fast local document search without creating an account or syncing their library to a cloud service. Indexing and search remain local; document text leaves the computer only after an explicit summary request.
 
 ## Install on Windows
 
@@ -13,6 +13,7 @@ It is for people who want fast local document search without uploading files, cr
 5. Add a folder, or use the default document folders.
 6. Click **Index library**.
 7. Search by filename, folder path, or document content.
+8. Optional: open **Settings** and save your OpenAI API key to enable document summaries.
 
 MSI packages may also be attached to releases for managed install workflows, but the `.exe` installer is the normal user download.
 
@@ -26,8 +27,9 @@ MSI packages may also be attached to releases for managed install workflows, but
 - Skips unchanged healthy files on repeat scans, avoiding unnecessary file reads, parsing, OCR, and search-index rewrites.
 - Shows index diagnostics, read/parser failures, scan progress, and partial scan status.
 - Keeps indexed data on this computer.
+- Generates an optional structured summary for one open document after a deliberate **Generate summary** action.
 
-StackDrop does not require an account, does not upload files, and does not delete, rename, or move your documents.
+StackDrop does not require an account and does not delete, rename, or move your documents. It never uploads files themselves. The optional summary feature sends only the bounded prepared text and limited metadata described below.
 
 ## Supported Files
 
@@ -41,6 +43,20 @@ StackDrop indexes these file types:
 PDF text is extracted locally. Scanned PDFs may use bundled local OCR and can take longer. DOCX parsing uses local document text extraction. Legacy `.doc` files use a bundled local extraction tool when available.
 
 Unsupported file types are skipped during discovery.
+
+## Document Summaries
+
+Document summaries are optional and use your own OpenAI API key:
+
+1. Open **Settings** and enter the key under **Document summaries**.
+2. Open an indexed document with extracted text and choose **Summarize**.
+3. Review the disclosure, then choose **Generate summary** to make one request.
+
+On Windows, StackDrop stores the key in Windows Credential Manager under service `com.stackdrop.app` and account `openai-api-key`. The saved key is retrieved only by native Rust code, is never returned to React, and is not written to SQLite, browser storage, a configuration file, or an environment variable. Non-Windows development builds use memory-only session storage and report that limitation in Settings.
+
+Indexing, parsing, SQLite data, FTS search, diagnostics, folder paths, and unrelated documents stay local. A summary request sends only the selected document's prepared extracted text plus its filename, relative path, and extension to the OpenAI Responses API. StackDrop never sends the absolute path, folder root, parse errors, diagnostics, database contents, the source file, or the API key as model input. OpenAI API usage and any resulting cost are charged to the OpenAI account associated with the user's key.
+
+Prepared text is normalized and limited to 48,000 Unicode characters. Longer documents use deterministic bounded samples from the beginning, middle, and end; the summary panel discloses when this happens. Summaries use GPT-5.6 (`gpt-5.6-sol`) with storage disabled for the API response, are not generated automatically, and are not saved by StackDrop.
 
 ## Indexing and Diagnostics
 
@@ -67,6 +83,10 @@ If a scan pauses before all discovered files are processed, click **Re-scan this
 - Partial scans preserve completed work but are retried on a later scan rather than resumed from an exact saved cursor.
 - Unsupported file types are skipped and are not counted in diagnostics.
 - Some PDFs, damaged documents, encrypted files, cloud placeholders, or permission-blocked files may fail read or parse.
+- Summaries require an eligible OpenAI project, network access, and available API quota; quality is limited by extracted text and the bounded sample for long documents.
+- Summary requests are not currently cancellable once sent. The panel remains open until the request finishes.
+- StackDrop does not retain summary history. Closing the panel or app discards the generated summary.
+- Windows may retain the Credential Manager entry after uninstall; use **Remove key** in Settings before uninstalling if it should be deleted.
 
 ## Developer Setup
 
@@ -88,19 +108,22 @@ Run the full Tauri desktop app:
 npm run dev
 ```
 
-For web-only E2E/dev flows, set `VITE_E2E_SQLITE=1` so the browser shell uses the sql.js fallback instead of native Tauri plugins.
+For web-only E2E/dev flows, set `VITE_E2E_SQLITE=1` so the browser shell uses the sql.js fallback and in-memory summary mocks instead of native Tauri plugins. Automated tests never access Windows Credential Manager or the real OpenAI API.
 
 ## Verification
 
 ```bash
+npm run check:file-capabilities
 npm run typecheck
 npm run test
 npm run test:e2e
 npm run build
 cd src-tauri
+cargo fmt --check
 cargo test
 cd ..
 git diff --check
+powershell -ExecutionPolicy Bypass -File scripts/check-release-integrity.ps1
 ```
 
 ## Build Installers Locally
@@ -117,6 +140,16 @@ src-tauri/target/release/bundle/msi/
 ```
 
 Generated `target/` output and installers are local build artifacts and are not committed to GitHub.
+
+For a Windows release check, run the full verification suite above, then build both installer formats with `npm run tauri -- build`. Install the NSIS package for the normal user path and use the MSI for managed-install verification.
+
+## OpenAI Build Week
+
+Pre-existing StackDrop functionality includes local folder discovery, document parsing, SQLite indexing, FTS search, diagnostics, the file watcher, and support for `.txt`, `.pdf`, `.docx`, and `.doc` files.
+
+The new GPT-5.6 extension adds secure BYOK settings, a native OpenAI request boundary, explicit one-click summaries for the selected document, a validated structured summary panel, clear privacy disclosure, and scoped unit, Rust, component, and Playwright coverage. It does not add chat, cross-document synthesis, embeddings, vector search, saved summaries, or background AI requests.
+
+Primary Codex `/feedback` session ID: `TODO: add submission session ID`
 
 ## Release Workflow
 
