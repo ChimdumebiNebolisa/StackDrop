@@ -1,6 +1,7 @@
 import { watch, type WatchEvent } from "@tauri-apps/plugin-fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { SUPPORTED_FILE_EXTENSIONS } from "../../domain/documents/generatedFileCapabilities";
 import type { IndexedFolderRecord } from "../../domain/documents/types";
 import { watchIndexedFolders } from "../../features/folders/services/watchIndexedFolders";
 import { invokeDiscoverSupportedFiles } from "../../features/folders/services/tauriFolderFs";
@@ -55,5 +56,57 @@ describe("watchIndexedFolders", () => {
 
     await stop();
     expect(unwatch).toHaveBeenCalled();
+  });
+
+  it("marks folders dirty for every generated supported extension", async () => {
+    vi.useFakeTimers();
+    let nativeCallback: ((event: WatchEvent) => void) | undefined;
+    const unwatch = vi.fn(() => undefined) as () => void;
+    vi.mocked(watch).mockImplementation(async (_rootPath, callback) => {
+      nativeCallback = callback;
+      return unwatch;
+    });
+    vi.mocked(invokeDiscoverSupportedFiles).mockResolvedValue([]);
+    const onFolderDirty = vi.fn();
+
+    const stop = await watchIndexedFolders([folder], { onFolderDirty });
+
+    for (const extension of SUPPORTED_FILE_EXTENSIONS) {
+      nativeCallback?.({
+        paths: [`C:\\fixture-root\\created.${extension.toUpperCase()}`],
+        type: "create",
+        attrs: {},
+      } as unknown as WatchEvent);
+      await vi.advanceTimersByTimeAsync(1200);
+    }
+
+    expect(onFolderDirty).toHaveBeenCalledTimes(SUPPORTED_FILE_EXTENSIONS.length);
+
+    await stop();
+  });
+
+  it("ignores native events for known unsupported extensions", async () => {
+    vi.useFakeTimers();
+    let nativeCallback: ((event: WatchEvent) => void) | undefined;
+    const unwatch = vi.fn(() => undefined) as () => void;
+    vi.mocked(watch).mockImplementation(async (_rootPath, callback) => {
+      nativeCallback = callback;
+      return unwatch;
+    });
+    vi.mocked(invokeDiscoverSupportedFiles).mockResolvedValue([]);
+    const onFolderDirty = vi.fn();
+
+    const stop = await watchIndexedFolders([folder], { onFolderDirty });
+
+    nativeCallback?.({
+      paths: ["C:\\fixture-root\\unsupported.xlsx"],
+      type: "create",
+      attrs: {},
+    } as unknown as WatchEvent);
+    await vi.advanceTimersByTimeAsync(1200);
+
+    expect(onFolderDirty).not.toHaveBeenCalled();
+
+    await stop();
   });
 });

@@ -1,5 +1,6 @@
 import { watch, type UnwatchFn } from "@tauri-apps/plugin-fs";
 
+import { SUPPORTED_FILE_EXTENSIONS } from "../../../domain/documents/generatedFileCapabilities";
 import type { IndexedFolderRecord } from "../../../domain/documents/types";
 import { logScanSummary } from "../../../lib/log";
 import { invokeDiscoverSupportedFiles } from "./tauriFolderFs";
@@ -8,7 +9,7 @@ interface WatchOptions {
   onFolderDirty: (folder: IndexedFolderRecord) => boolean | void;
 }
 
-const SUPPORTED_EXTENSIONS = new Set(["txt", "pdf", "docx", "doc"]);
+const SUPPORTED_EXTENSIONS = new Set<string>(SUPPORTED_FILE_EXTENSIONS);
 const FOLDER_RESCAN_DEBOUNCE_MS = 1200;
 const FS_EVENT_DEBOUNCE_MS = 450;
 const POLL_FALLBACK_MS = 5000;

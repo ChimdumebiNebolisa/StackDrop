@@ -12,6 +12,7 @@ use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
 
+use crate::generated_file_capabilities;
 use crate::path_utils::{
     assert_path_within_root, normalize_selected_folder_path, path_for_frontend,
     read_file_bytes_under_root as read_bytes_checked,
@@ -31,11 +32,7 @@ pub struct DiscoveredFileDto {
 }
 
 fn supported_extension(path: &Path) -> Option<String> {
-    let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    match ext.as_str() {
-        "txt" | "pdf" | "docx" | "doc" => Some(ext),
-        _ => None,
-    }
+    generated_file_capabilities::supported_extension(path).map(str::to_string)
 }
 
 #[tauri::command]
@@ -538,14 +535,20 @@ mod discover_tests {
         let root = std::env::temp_dir().join("stackdrop_discover_ext");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::File::create(root.join("a.docx")).unwrap();
-        std::fs::File::create(root.join("legacy.doc")).unwrap();
+        for extension in generated_file_capabilities::SUPPORTED_FILE_EXTENSIONS {
+            std::fs::File::create(root.join(format!("fixture.{extension}"))).unwrap();
+        }
         std::fs::File::create(root.join("b.bin")).unwrap();
 
         let list = discover_supported_files(root.to_string_lossy().to_string()).unwrap();
-        assert_eq!(list.len(), 2);
-        assert!(list.iter().any(|f| f.extension == "docx"));
-        assert!(list.iter().any(|f| f.extension == "doc"));
+        assert_eq!(
+            list.len(),
+            generated_file_capabilities::SUPPORTED_FILE_EXTENSIONS.len()
+        );
+        for extension in generated_file_capabilities::SUPPORTED_FILE_EXTENSIONS {
+            assert!(list.iter().any(|f| f.extension == *extension));
+        }
+        assert!(!list.iter().any(|f| f.extension == "bin"));
 
         let _ = std::fs::remove_dir_all(&root);
     }
