@@ -1,4 +1,6 @@
-export type FileExtension = "txt" | "pdf" | "docx" | "doc";
+import type { FileExtension } from "./generatedFileCapabilities";
+
+export type { FileExtension } from "./generatedFileCapabilities";
 
 export type ParseStatus = "parsed_text" | "parsed_ocr" | "parse_failed";
 

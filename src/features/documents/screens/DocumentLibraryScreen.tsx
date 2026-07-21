@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { useAppData } from "../../../app/providers/AppDataProvider";
+import { FILE_EXTENSION_FILTER_OPTIONS } from "../../../domain/documents/generatedFileCapabilities";
 import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus, SearchResultRecord } from "../../../domain/documents/types";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
 import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
@@ -551,10 +552,11 @@ export function DocumentLibraryScreen() {
               aria-label="Filter by file type"
             >
               <option value="">All types</option>
-              <option value="txt">.txt</option>
-              <option value="pdf">.pdf</option>
-              <option value="docx">.docx</option>
-              <option value="doc">.doc</option>
+              {FILE_EXTENSION_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  .{option.value}
+                </option>
+              ))}
             </select>
           </label>
           <label className="filter-field">
