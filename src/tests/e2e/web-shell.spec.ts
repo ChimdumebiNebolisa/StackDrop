@@ -50,46 +50,15 @@ function buildShimFiles(root: string): ShimFile[] {
   ];
 }
 
-declare global {
-  interface Window {
-    __STACKDROP_E2E__?: {
-      pickFolder?: () => string | null;
-      defaultDocumentRoots?: () => string[];
-      discoverSupportedFiles?: (rootPath: string) => Array<{
-        absolutePath: string;
-        relativePath: string;
-        fileName: string;
-        extension: string;
-        sizeBytes: number;
-        modifiedAtMs: number;
-      }> | Promise<Array<{
-        absolutePath: string;
-        relativePath: string;
-        fileName: string;
-        extension: string;
-        sizeBytes: number;
-        modifiedAtMs: number;
-      }>>;
-      readFileUnderRoot?: (rootPath: string, absolutePath: string) => Uint8Array | number[] | null | Promise<Uint8Array | number[] | null>;
-      ocrPdfTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
-      extractDocTextUnderRoot?: (rootPath: string, absolutePath: string) => string;
-      watchFolders?: (paths: string[], onDirtyRoot: (rootPath: string) => void) => (() => void) | void;
-    };
-    __STACKDROP_E2E_TEST__?: {
-      emitWatch: (rootPath?: string) => void;
-      createTxt: (name: string, text: string) => void;
-      modifyTxt: (name: string, text: string) => void;
-      deleteFile: (name: string) => void;
-      renameFile: (oldName: string, newName: string) => void;
-      setDiscoverError: (message: string | null) => void;
-      listFileNames: () => string[];
-    };
-  }
-}
-
 async function installFeatureShim(
   page: Page,
-  options: { defaultRoots?: string[]; pickFolder?: string | null; files?: ShimFile[]; readDelayMs?: number } = {},
+  options: {
+    defaultRoots?: string[];
+    pickFolder?: string | null;
+    files?: ShimFile[];
+    readDelayMs?: number;
+    summaryFailure?: "invalid_api_key" | "network_error" | null;
+  } = {},
 ) {
   const payload = {
     rootPath: ROOT_PATH,
@@ -97,6 +66,7 @@ async function installFeatureShim(
     pickFolder: options.pickFolder ?? ROOT_PATH,
     files: options.files ?? buildShimFiles(ROOT_PATH),
     readDelayMs: options.readDelayMs ?? 0,
+    summaryFailure: options.summaryFailure ?? null,
   };
 
   await page.addInitScript((init) => {
@@ -105,6 +75,8 @@ async function installFeatureShim(
     const files = [...init.files];
     const watchers: Array<(rootPath: string) => void> = [];
     let discoverError: string | null = null;
+    let apiKeyConfigured = false;
+    let summaryFailure: "invalid_api_key" | "network_error" | null = init.summaryFailure;
 
     const fireDirty = (rootPath: string) => {
       for (const cb of watchers) cb(rootPath);
@@ -159,6 +131,28 @@ async function installFeatureShim(
           if (index >= 0) watchers.splice(index, 1);
         };
       },
+      hasOpenAIApiKey: () => ({ configured: apiKeyConfigured, persistence: "os_credential" }),
+      saveOpenAIApiKey: (apiKey: string) => {
+        if (!apiKey.trim()) throw { code: "invalid_input" };
+        apiKeyConfigured = true;
+        return { configured: true, persistence: "os_credential" };
+      },
+      removeOpenAIApiKey: () => {
+        apiKeyConfigured = false;
+        return { configured: false, persistence: "os_credential" };
+      },
+      summarizeDocument: () => {
+        if (!apiKeyConfigured) throw { code: "api_key_missing" };
+        if (summaryFailure) throw { code: summaryFailure };
+        return {
+          overview: "This fixture document contains a concise local test note.",
+          keyPoints: ["The selected document is summarized only after an explicit request."],
+          importantDetails: ["The automated test uses an in-memory mock and never calls OpenAI."],
+          importantDates: [],
+          actionItems: ["Review the generated summary."],
+          uncertainties: [],
+        };
+      },
     };
 
     window.__STACKDROP_E2E_TEST__ = {
@@ -200,6 +194,9 @@ async function installFeatureShim(
         discoverError = message;
       },
       listFileNames: () => files.map((f) => f.fileName),
+      setSummaryFailure: (code) => {
+        summaryFailure = code;
+      },
     };
   }, payload);
 }
@@ -465,6 +462,54 @@ test("relevance sort: filename match ranks above body match", async ({ page }) =
   const links = page.locator(".doc-row .doc-name");
   const firstResult = await links.first().textContent();
   expect(firstResult).toBe("TARGETWORD.txt");
+});
+
+test("saves a mocked API key and generates a structured document summary", async ({ page }) => {
+  await installFeatureShim(page);
+  await page.goto("/");
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByRole("heading", { name: "Document summaries" })).toBeVisible();
+  await page.getByLabel("OpenAI API key").fill("test-only-placeholder");
+  await page.getByRole("button", { name: "Save key" }).click();
+  await expect(page.getByText("API key configured", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
+  await documentLink(page, "sample.txt").click();
+
+  await page.getByRole("button", { name: "Summarize" }).click();
+  const panel = page.getByRole("dialog", { name: "Document summary" });
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Generate summary" }).click();
+  await expect(panel.getByText("This fixture document contains a concise local test note.")).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Key points" })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Important details" })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Action items" })).toBeVisible();
+  await panel.getByRole("button", { name: "Close document summary" }).click();
+  await expect(panel).not.toBeVisible();
+});
+
+test("shows an actionable invalid-key summary error", async ({ page }) => {
+  await installFeatureShim(page, { summaryFailure: "invalid_api_key" });
+  await page.goto("/");
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByLabel("OpenAI API key").fill("invalid-test-placeholder");
+  await page.getByRole("button", { name: "Save key" }).click();
+  await expect(page.getByText("API key configured", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByLabel("Index controls").getByRole("button", { name: "Index library" }).click();
+  await expect(documentLink(page, "sample.txt")).toBeVisible({ timeout: 15_000 });
+  await documentLink(page, "sample.txt").click();
+  await page.getByRole("button", { name: "Summarize" }).click();
+  const panel = page.getByRole("dialog", { name: "Document summary" });
+  await panel.getByRole("button", { name: "Generate summary" }).click();
+  await expect(panel.getByText(/OpenAI rejected this API key/i)).toBeVisible();
+  await panel.getByRole("link", { name: "Open Settings" }).click();
+  await expect(page.getByRole("heading", { name: "Document summaries" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replace key" })).toBeVisible();
 });
 
 test("proof screenshots — library, search, and detail", async ({ page }) => {

@@ -4,6 +4,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAppData } from "../../../app/providers/AppDataProvider";
 import { FILE_EXTENSION_FILTER_OPTIONS } from "../../../domain/documents/generatedFileCapabilities";
 import type { FileExtension, IndexedDocumentRecord, IndexedFolderRecord, ParseStatus, SearchResultRecord } from "../../../domain/documents/types";
+import { OpenAIKeySettings } from "../../settings/components/OpenAIKeySettings";
 import { addIndexedFolder } from "../../folders/services/addIndexedFolder";
 import { ensureDefaultLibraryRoots } from "../../folders/services/ensureDefaultLibraryRoots";
 import {
@@ -929,12 +930,14 @@ export function DocumentLibraryScreen() {
             </select>
           </div>
         </div>
+        <OpenAIKeySettings />
       </section>
 
       <section className="about-panel" id="about" aria-labelledby="about-heading">
         <h2 id="about-heading">About</h2>
         <p className="muted">
-          StackDrop is a local-first document search utility for supported text, PDF, DOCX, and DOC files. Files stay on this computer.
+          StackDrop is a local-first document search utility for supported text, PDF, DOCX, and DOC files. Indexing and search stay on this
+          computer.
         </p>
         <p className="muted">
           {shellHealth ? `Shell ${shellHealth.ok ? "OK" : "issue"} · v${shellHealth.packageVersion}` : "Shell status unavailable"}

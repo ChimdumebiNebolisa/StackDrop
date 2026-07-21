@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { useAppData } from "../../../app/providers/AppDataProvider";
 import type { IndexedDocumentRecord } from "../../../domain/documents/types";
+import { DocumentSummaryLauncher } from "../../document-summary/components/DocumentSummaryLauncher";
 import { getDocumentDetail } from "../services/getDocumentDetail";
 
 function formatParseStatus(status: IndexedDocumentRecord["parseStatus"]): string {
@@ -45,7 +46,19 @@ export function DocumentDetailScreen() {
   return (
     <div className="stack">
       <Link to="/">← Back</Link>
-      <h1>{doc.fileName}</h1>
+      <div className="detail-heading-row">
+        <h1>{doc.fileName}</h1>
+        <DocumentSummaryLauncher
+          document={{
+            id: doc.id,
+            fileName: doc.fileName,
+            relativePath: doc.relativePath,
+            fileExtension: doc.fileExtension,
+            parseStatus: doc.parseStatus,
+            extractedText: doc.extractedText,
+          }}
+        />
+      </div>
       <dl className="meta-grid">
         <dt>Path</dt>
         <dd>
