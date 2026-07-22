@@ -48,9 +48,15 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
       - name: Check release metadata and bundled resources
         shell: pwsh
         run: ./scripts/check-release-integrity.ps1
+
+      - name: Validate file capabilities
+        run: npm run check:file-capabilities
 
       - name: Typecheck
         run: npm run typecheck
@@ -58,8 +64,15 @@ jobs:
       - name: Unit and integration tests
         run: npm run test
 
+      - name: Web-shell E2E tests
+        run: npm run test:e2e
+
       - name: Build frontend
         run: npm run build
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
+        working-directory: src-tauri
 
       - name: Rust tests
         run: cargo test

@@ -126,6 +126,25 @@ git diff --check
 powershell -ExecutionPolicy Bypass -File scripts/check-release-integrity.ps1
 ```
 
+### Summary feature test coverage
+
+The summary feature is covered at each trust boundary without putting a real key or real OpenAI request into automated tests:
+
+- `prepareDocumentText.test.ts` covers blank input, whitespace and paragraph normalization, Unicode, exact and oversized limits, deterministic beginning/middle/end sampling, omission markers, and truncation metadata.
+- `validateDocumentSummary.test.ts` covers the valid schema, empty optional arrays, missing fields, incorrect types, oversized arrays and strings, malformed JSON, and unexpected properties.
+- `OpenAIKeySettings.test.tsx` covers configured and missing-key states plus save, replace, and remove interactions without ever reading a stored key back into React.
+- `DocumentSummaryLauncher.test.tsx` covers disabled documents, missing credentials, deliberate generation, loading, structured rendering, optional-section hiding, invalid-key guidance, retry, close/focus behavior, and truncation disclosure.
+- Rust tests cover the fixed GPT-5.6 model and request settings, absence of tools, prompt/data separation, document-ID exclusion, input bounds, safe status mapping, refusal handling, schema enforcement, stable credential identifiers, and secret-free error serialization.
+- `web-shell.spec.ts` exercises the complete Settings → document → **Summarize** → **Generate summary** → structured panel path plus invalid-key recovery through `window.__STACKDROP_E2E__` mocks.
+
+The Playwright boundary is intentionally in-memory. CI and release builds never use Windows Credential Manager credentials and never call the real OpenAI API.
+
+### CI/CD integration
+
+`.github/workflows/ci.yml` runs on every pull request and push to `main`. The Linux job installs a pinned npm dependency graph and Playwright Chromium, then validates file capabilities, TypeScript, Vitest unit/integration coverage, web-shell E2E behavior, and the production frontend build. The Windows job checks Rust formatting, runs native Rust tests with the bundled-tool path configured, and validates release metadata and required Windows resources.
+
+`.github/workflows/release.yml` is the deployment path. A semantic version tag runs the same file-capability, type, Vitest, Playwright, frontend-build, Rust-format, Rust-test, and release-integrity gates on Windows before Tauri packages the app. The workflow uploads the NSIS `.exe` and MSI `.msi` as build artifacts, then publishes both files on the matching GitHub Release. Any failed check or missing installer stops publication.
+
 ## Build Installers Locally
 
 ```bash

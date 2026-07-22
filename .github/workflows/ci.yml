@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate file capabilities
+        run: npm run check:file-capabilities
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm run test
+
+      - name: Web-shell E2E tests
+        run: npm run test:e2e
+
+      - name: Build frontend
+        run: npm run build
+
+  native-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-ci-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: windows-ci-cargo-
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
+        working-directory: src-tauri
+
+      - name: Rust tests
+        run: cargo test
+        working-directory: src-tauri
+        env:
+          STACKDROP_TOOL_ROOT: ${{ github.workspace }}/src-tauri/resources/windows-tools
+
+      - name: Check release metadata and bundled resources
+        shell: pwsh
+        run: ./scripts/check-release-integrity.ps1
