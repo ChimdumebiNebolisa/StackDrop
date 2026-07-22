@@ -145,9 +145,57 @@ For a Windows release check, run the full verification suite above, then build b
 
 ## OpenAI Build Week
 
-Pre-existing StackDrop functionality includes local folder discovery, document parsing, SQLite indexing, FTS search, diagnostics, the file watcher, and support for `.txt`, `.pdf`, `.docx`, and `.doc` files.
+### What existed before Build Week
 
-The new GPT-5.6 extension adds secure BYOK settings, a native OpenAI request boundary, explicit one-click summaries for the selected document, a validated structured summary panel, clear privacy disclosure, and scoped unit, Rust, component, and Playwright coverage. It does not add chat, cross-document synthesis, embeddings, vector search, saved summaries, or background AI requests.
+StackDrop already provided local folder discovery, local parsing for `.txt`, `.pdf`, `.docx`, and `.doc` files, SQLite indexing, FTS search, diagnostics, scan progress, and file watching. The Build Week work did not replace those systems or add AI to indexing or search. The new work is an optional, explicitly initiated extension for one selected document.
+
+### How Codex was used
+
+Codex was used as the development agent for the feature from repository audit through implementation and verification. The developer supplied the product requirements, privacy boundaries, and approval decisions; Codex inspected the existing architecture, proposed the scoped change, challenged the plan for security and packaging risks, edited the code and documentation, ran the test/build commands, and organized the work into reviewable Git commits.
+
+The Codex-assisted workflow included:
+
+1. **Repository audit and scope control.** Codex inspected the React routes and providers, the existing `#settings` section, document-detail data flow, Tauri commands, Rust dependencies, test conventions, Windows capabilities, E2E mocks, and release workflow. That audit confirmed that summaries could use the existing extracted text without changing discovery, parsers, SQLite, FTS, file watching, supported formats, or database tables.
+2. **Plan and red-team pass before editing.** The implementation plan was reviewed for API-key exposure, plaintext persistence, frontend bundle leakage, secret logging, absolute-path transmission, document prompt injection, malformed model output, oversized documents, duplicate requests, missing credentials, Playwright isolation, Windows installer compatibility, and accidental refactors. The resulting design moved secrets and networking into Rust, bounded the input, added two validation layers, and kept automated tests off the real API.
+3. **Native trust boundary.** Codex implemented Windows Credential Manager storage in `src-tauri/src/services/credential_store.rs`, typed Tauri commands in `src-tauri/src/commands/summary_commands.rs`, and the HTTPS Responses API client in `src-tauri/src/services/openai_summary.rs`. React can submit a replacement key but cannot retrieve the saved key. Native errors are reduced to fixed codes so keys, authorization headers, raw provider responses, and request objects are not exposed to the UI.
+4. **Focused product UI.** Codex extracted the BYOK settings into `src/features/settings/`, added the summary feature under `src/features/document-summary/`, and kept `DocumentDetailScreen` as a narrow integration point. The drawer requires a second, deliberate **Generate summary** action, manages focus and Escape behavior, presents actionable error states, and keeps the result only in memory.
+5. **Deterministic data preparation and validation.** Codex added a pure 48,000-character preparation function that preserves useful paragraph structure and samples the beginning, middle, and end of oversized documents. It also added strict Rust and TypeScript validation for the same summary contract instead of rendering arbitrary model text or raw JSON.
+6. **Verification and delivery discipline.** Codex added unit, Rust, React component, and Playwright coverage; used in-memory E2E mocks rather than real credentials or network calls; ran the existing type, test, build, formatting, release-integrity, and installer-build paths; inspected the final diff for secrets and scope drift; and split the feature into native-boundary, UI/test, and documentation commits. Human review and a valid developer-owned API key are still required for live-account verification and release approval.
+
+This use of Codex was intentionally constrained: it did not redesign StackDrop, broaden the supported file formats, add cloud accounts, or alter local search behavior. It worked from the repository's `AGENTS.md` rules and the Build Week brief, and it preserved unrelated pre-existing worktree changes rather than staging them with the feature.
+
+### How GPT-5.6 is used in StackDrop
+
+The shipped summary path uses the OpenAI Responses API with the explicit flagship model identifier [`gpt-5.6-sol`](https://developers.openai.com/api/docs/guides/model-guidance?model=gpt-5.6). OpenAI's current model guidance identifies Sol as the flagship GPT-5.6 tier and recommends the Responses API for reasoning workflows. StackDrop uses low reasoning effort because this is a bounded, latency-sensitive summarization task rather than an open-ended agent workflow.
+
+GPT-5.6 is called only after the user opens one parsed document, chooses **Summarize**, reviews the disclosure, and chooses **Generate summary**. The native request has these boundaries:
+
+- `model: "gpt-5.6-sol"`, `reasoning.effort: "low"`, `store: false`, `stream: false`, and `max_output_tokens: 1800`
+- no tools, web search, file search, streaming, background generation, or multi-agent behavior
+- only the prepared extracted text plus `fileName`, `relativePath`, and `fileExtension`
+- no absolute path, folder root, document ID, source file, database data, diagnostics, parse errors, unrelated documents, or API key in the model input
+- developer instructions that label all document content and metadata as untrusted data, tell the model to ignore instructions inside the document, restrict it to the supplied document, and prohibit invented facts
+
+The request uses strict [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs) for this contract:
+
+```json
+{
+  "overview": "string",
+  "keyPoints": ["string"],
+  "importantDetails": ["string"],
+  "importantDates": ["string"],
+  "actionItems": ["string"],
+  "uncertainties": ["string"]
+}
+```
+
+The schema rejects extra properties and caps array and string sizes. Rust validates the provider response before it crosses the Tauri boundary, and TypeScript validates it again before rendering. Refusals, incomplete output, malformed JSON, excessive values, invalid credentials, rate limits, timeouts, network failures, and unavailable-model responses become safe, typed UI errors rather than raw response dumps.
+
+GPT-5.6 does **not** discover files, parse documents, create the SQLite index, rank search results, watch folders, or run automatically. It produces one ephemeral structured summary for the selected document. StackDrop does not save that summary, create history, build embeddings, perform retrieval, combine documents, or offer chat or follow-up questions.
+
+### Build Week extension summary
+
+The new extension consists of secure BYOK settings, a native OpenAI request boundary, explicit selected-document summaries, a validated structured summary drawer, privacy disclosure, deterministic long-document sampling, and scoped automated coverage. The deliberately excluded work includes chat, cross-document synthesis, citations, embeddings, vector search, saved summaries, summary history, automatic summarization, and background AI requests.
 
 Primary Codex `/feedback` session ID: `TODO: add submission session ID`
 
