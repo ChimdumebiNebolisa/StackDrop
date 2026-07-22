@@ -1,6 +1,7 @@
 import type { FailureStage, IndexedFolderRecord } from "../../../domain/documents/types";
 import type { SqlClient } from "../../../data/db/sqliteClient";
 import { FolderRepository } from "../../../data/repositories/folderRepository";
+import { SUPPORTED_FILE_CAPABILITIES } from "../../../domain/documents/generatedFileCapabilities";
 
 export type FolderHealthStatus = "healthy" | "never_scanned" | "has_failures" | "root_error" | "scan_incomplete" | "partial_scan";
 
@@ -32,9 +33,18 @@ export interface RecentIndexFailure {
   updatedAt: string;
 }
 
+export interface SupportedFormatDiagnostic {
+  extension: string;
+  displayLabel: string;
+  parserId: string;
+  parseRuntime: "browser" | "hybrid" | "native";
+  ocrSupported: boolean;
+}
+
 export interface IndexDiagnostics {
   folders: FolderIndexDiagnostics[];
   recentFailures: RecentIndexFailure[];
+  supportedFormats: SupportedFormatDiagnostic[];
   totals: {
     indexedFolders: number;
     totalDocuments: number;
@@ -108,6 +118,16 @@ function determineFolderStatus(
     return "has_failures";
   }
   return "healthy";
+}
+
+function getSupportedFormatDiagnostics(): SupportedFormatDiagnostic[] {
+  return SUPPORTED_FILE_CAPABILITIES.filter((capability) => capability.defaultEnabled).map((capability) => ({
+    extension: capability.extension,
+    displayLabel: capability.displayLabel,
+    parserId: capability.parserId,
+    parseRuntime: capability.parseRuntime,
+    ocrSupported: capability.ocr.supported,
+  }));
 }
 
 export async function getIndexDiagnostics(client: SqlClient): Promise<IndexDiagnostics> {
@@ -204,6 +224,7 @@ export async function getIndexDiagnostics(client: SqlClient): Promise<IndexDiagn
       parseError: row.parse_error,
       updatedAt: row.updated_at,
     })),
+    supportedFormats: getSupportedFormatDiagnostics(),
     totals,
     unsupportedSkippedFilesTracked: false,
   };

@@ -5,6 +5,7 @@ import { runMigrations } from "../../data/db/migrate";
 import type { SqlClient } from "../../data/db/sqliteClient";
 import { DocumentRepository } from "../../data/repositories/documentRepository";
 import { FolderRepository } from "../../data/repositories/folderRepository";
+import { SUPPORTED_FILE_CAPABILITIES } from "../../domain/documents/generatedFileCapabilities";
 import { getIndexDiagnostics, getUnprocessedFileCount } from "../../features/folders/services/getIndexDiagnostics";
 
 describe("index diagnostics", () => {
@@ -91,6 +92,15 @@ describe("index diagnostics", () => {
     });
     expect(diagnostics.recentFailures.map((failure) => failure.fileName)).toEqual(
       expect.arrayContaining(["read-fail.txt", "parse-fail.txt"]),
+    );
+    expect(diagnostics.supportedFormats).toEqual(
+      SUPPORTED_FILE_CAPABILITIES.map((capability) => ({
+        extension: capability.extension,
+        displayLabel: capability.displayLabel,
+        parserId: capability.parserId,
+        parseRuntime: capability.parseRuntime,
+        ocrSupported: capability.ocr.supported,
+      })),
     );
     expect(diagnostics.unsupportedSkippedFilesTracked).toBe(false);
   });

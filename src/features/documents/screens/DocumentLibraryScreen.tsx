@@ -235,6 +235,14 @@ function formatTimeoutLimit(message: string | null): string {
   return match ? `${match[1]} seconds` : "the configured time limit";
 }
 
+function supportedFormatSummary(diagnostics: IndexDiagnostics | null): string {
+  const formats = diagnostics?.supportedFormats ?? [];
+  if (formats.length === 0) return "supported file types";
+  const extensions = formats.map((format) => `.${format.extension}`);
+  const joined = extensions.length === 1 ? extensions[0] : `${extensions.slice(0, -1).join(", ")}, and ${extensions[extensions.length - 1]}`;
+  return `${joined} files`;
+}
+
 export function DocumentLibraryScreen() {
   const { client, loadState, bumpDataVersion, dataVersion } = useAppData();
   const location = useLocation();
@@ -653,7 +661,8 @@ export function DocumentLibraryScreen() {
             </div>
           </div>
           <p className="diagnostics-note">
-            Unsupported or skipped files are not tracked in the current index schema; unsupported extensions are filtered during discovery.
+            StackDrop currently discovers {supportedFormatSummary(diagnostics)}. Unsupported or skipped files are not tracked in the
+            current index schema; unsupported extensions are filtered during discovery.
           </p>
           <p className="diagnostics-note">
             Failed parses do not break filename or path search. Parser failures mean content could not be extracted; read failures mean the file
@@ -936,7 +945,7 @@ export function DocumentLibraryScreen() {
       <section className="about-panel" id="about" aria-labelledby="about-heading">
         <h2 id="about-heading">About</h2>
         <p className="muted">
-          StackDrop is a local-first document search utility for supported text, PDF, DOCX, and DOC files. Indexing and search stay on this
+          StackDrop is a local-first document search utility for {supportedFormatSummary(diagnostics)}. Indexing and search stay on this
           computer.
         </p>
         <p className="muted">

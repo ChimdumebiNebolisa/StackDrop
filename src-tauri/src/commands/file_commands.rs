@@ -285,12 +285,7 @@ fn ocr_pdf_with_tools(
     if !canon.is_file() {
         return Err("Path is not a file.".to_string());
     }
-    if canon
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.eq_ignore_ascii_case("pdf"))
-        != Some(true)
-    {
+    if !generated_file_capabilities::path_supports_ocr_parser(&canon, "pdf-ocr") {
         return Err("OCR fallback only supports PDF files.".to_string());
     }
 
@@ -372,12 +367,7 @@ fn extract_doc_text_with_tools(
     if !canon.is_file() {
         return Err("Path is not a file.".to_string());
     }
-    if canon
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.eq_ignore_ascii_case("doc"))
-        != Some(true)
-    {
+    if !generated_file_capabilities::path_supports_parser(&canon, "doc-antiword") {
         return Err("Legacy extraction only supports .doc files.".to_string());
     }
 

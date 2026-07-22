@@ -164,6 +164,16 @@ export function isSupportedFileExtension(value: string): value is FileExtension 
   return (SUPPORTED_FILE_EXTENSIONS as readonly string[]).includes(value.toLowerCase());
 }
 
+function normalizeExtension(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.startsWith(".") ? trimmed.slice(1) : trimmed;
+}
+
+export function getFileCapability(value: string): FileCapability | null {
+  const extension = normalizeExtension(value);
+  return SUPPORTED_FILE_CAPABILITIES.find((capability) => capability.defaultEnabled && capability.extension === extension) ?? null;
+}
+
 export const FILE_EXTENSION_FILTER_OPTIONS = [
 ${filters},
 ] as const;
@@ -236,6 +246,34 @@ pub fn supported_extension(path: &Path) -> Option<&'static str> {
         .iter()
         .copied()
         .find(|supported| *supported == extension)
+}
+
+pub fn capability_for_extension(extension: &str) -> Option<&'static FileCapability> {
+    let normalized = extension
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase();
+    SUPPORTED_FILE_CAPABILITIES
+        .iter()
+        .find(|capability| capability.default_enabled && capability.extension == normalized)
+}
+
+pub fn capability_for_path(path: &Path) -> Option<&'static FileCapability> {
+    let extension = path.extension()?.to_str()?;
+    capability_for_extension(extension)
+}
+
+pub fn path_supports_parser(path: &Path, parser_id: &str) -> bool {
+    capability_for_path(path)
+        .map(|capability| capability.parser_id == parser_id)
+        .unwrap_or(false)
+}
+
+pub fn path_supports_ocr_parser(path: &Path, parser_id: &str) -> bool {
+    capability_for_path(path)
+        .and_then(|capability| capability.ocr_parser_id)
+        .map(|ocr_parser_id| ocr_parser_id == parser_id)
+        .unwrap_or(false)
 }
 `;
 }

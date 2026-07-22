@@ -1,8 +1,8 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-21
+Last updated: 2026-07-22
 Current roadmap phase: Phase 2 - Canonical file-type capability registry
-Current in-progress work unit: None; next is 2.5 Migrate parser routing and diagnostics
+Current in-progress work unit: None; next is 2.6 Generate or validate supported-format documentation
 
 ## Ordered work-unit checklist
 
@@ -21,7 +21,7 @@ Current in-progress work unit: None; next is 2.5 Migrate parser routing and diag
 - [x] 2.2 Add canonical source data and cross-language validation.
 - [x] 2.3 Migrate TypeScript consumers.
 - [x] 2.4 Migrate Rust discovery and watcher consumers.
-- [ ] 2.5 Migrate parser routing and diagnostics.
+- [x] 2.5 Migrate parser routing and diagnostics.
 - [ ] 2.6 Generate or validate supported-format documentation.
 - [ ] 2.7 Remove obsolete handwritten extension lists.
 - [ ] 2.8 Add drift-regression tests.
@@ -87,15 +87,16 @@ Current in-progress work unit: None; next is 2.5 Migrate parser routing and diag
 - 2.2 Add canonical source data and cross-language validation (2026-07-18). Added `src/shared/fileCapabilities.json` with the current four active formats only, a single Node generator/validator with `--write` and `--check` modes, checked-in generated TypeScript/Rust/database/documentation artifacts, package scripts for generation/checking, and Rust module exposure so the generated Rust artifact compiles during `cargo test`. Runtime consumers intentionally remain unmigrated until Phase 2.3-2.5. Verified with capability drift validation, TypeScript typecheck, focused extension/migration-adjacent tests, Rust tests, and diff hygiene.
 - 2.3 Migrate TypeScript consumers (2026-07-20). Replaced the handwritten TypeScript `FileExtension` union with the generated capability type and rendered the document library file-type filter from generated extension filter options. Added regression coverage that the generated TypeScript extension list and filter options derive from the same capability entries. Watcher filtering, parser routing, Rust discovery, SQLite schema/migrations, and documentation generation remain deferred to their ordered Phase 2 slices. Verified with capability drift validation, focused Vitest coverage, TypeScript typecheck, focused Playwright UI coverage, and diff hygiene.
 - 2.4 Migrate Rust discovery and watcher consumers (2026-07-21). Replaced the Rust discovery handwritten extension matcher with `generated_file_capabilities::supported_extension` and replaced the TypeScript watcher event set with `SUPPORTED_FILE_EXTENSIONS` from generated TypeScript capabilities. Added regression coverage that discovery accepts every generated Rust extension and skips unsupported extensions, and that native watcher events dirty folders for every generated TypeScript extension while ignoring known unsupported extensions. Verified with capability drift validation, focused and broader affected Vitest coverage, TypeScript typecheck, full Rust tests, Rust formatting, and diff hygiene.
+- 2.5 Migrate parser routing and diagnostics (2026-07-22). Added generated TypeScript and Rust capability lookup helpers, routed browser parser dispatch through generated `parserId`/`parseRuntime`, routed scan-level native and OCR parser decisions through generated capability metadata, and changed Rust native parser extension gates to generated parser/OCR parser metadata. Diagnostics now returns generated supported-format metadata and the document library diagnostics/about copy derives supported-format wording from diagnostics rather than a handwritten TXT/PDF/DOCX/DOC sentence. Added regression coverage for generated lookup helpers, native/OCR scan routing, and diagnostics supported-format metadata. Verified with capability drift validation, focused and full Vitest coverage, TypeScript typecheck, full Rust tests, Rust formatting, and diff hygiene.
 
 ## Current work-unit blast radius
 
-Completed 2.4 on 2026-07-21. Rust `discover_supported_files` now derives its extension gate from generated Rust capability data, and `watchIndexedFolders` now derives its native-event filter from generated TypeScript capability data. The active `txt`, `pdf`, `docx`, and `doc` behavior is preserved. Parser routing, SQLite schema/migrations, diagnostics, generated documentation inclusion, Tauri capabilities, packaging, and user-visible supported-format claims are intentionally unchanged until later Phase 2 slices.
+Completed 2.5 on 2026-07-22. Browser parser dispatch, scan-level native/OCR parser routing, Rust native parser extension gates, diagnostics metadata, and diagnostics/about UI supported-format wording now derive from generated capability metadata. The active `txt`, `pdf`, `docx`, and `doc` behavior is preserved. SQLite schema/migrations, generated documentation inclusion in user docs, Tauri capability files, packaging, and obsolete handwritten schema lists are intentionally unchanged until later Phase 2 slices.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
-- Phase 2 remaining consumer migration remains deferred: parser routing, SQLite schema/migrations, diagnostics, documentation generation/inclusion, obsolete list removal, and drift-regression tests.
+- Phase 2 remaining consumer migration remains deferred: SQLite schema/migrations, generated documentation inclusion, obsolete list removal, and additional drift-regression tests.
 - Phase 2 schema consumption remains deferred; 2.2 generates database SQL-helper constants but does not rewrite `schema.sql` or migration cleanup logic.
 - Larger 10,000-document and 100,000-document generated corpora remain deferred to Phase 6 performance work; this unit defines a small representative corpus and does not commit generated databases or latency thresholds.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
@@ -190,6 +191,25 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - `cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings` - exit 101; four findings: one unused function, one `manual_find`, and two `needless_borrow` findings. These existed before this evidence-only work unit.
 - JavaScript/TypeScript lint baseline - unavailable because `package.json` defines no lint script and no ESLint configuration is present.
 - `npm run tauri -- build` - exit 0; generated the Windows MSI and NSIS bundles locally. Warnings: the bundle identifier ends in `.app`, one Rust dead-code warning, and the same Vite chunk-size warning.
+- 2026-07-22: `git status --short` - exit 0; observed pre-existing modified proof screenshots and generated Tauri schema files before this run's edits.
+- 2026-07-22: Required inspection commands for automation memory, `AGENTS.md`, `README.md`, architecture docs, capability registry design, supported-extension inventory, package/Cargo manifests, release workflow, generated capability artifacts, parser routing, diagnostics, UI diagnostics consumers, Rust native parser gates, and relevant tests - exit 0.
+- 2026-07-22: `npm run test -- src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/generatedFileCapabilities.test.ts` - exit 0 before edits; 3 files and 12 tests passed.
+- 2026-07-22: `npm run generate:file-capabilities` - exit 0 after generator helper implementation; wrote 4 generated capability artifacts.
+- 2026-07-22: `npm run check:file-capabilities` - exit 0 after implementation; validated 4 capabilities and 4 generated artifacts.
+- 2026-07-22: `npm run test -- src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/generatedFileCapabilities.test.ts src/tests/unit/parseFile.pdf.test.ts src/tests/unit/parseFile.docx.test.ts` - exit 0 after implementation; 5 files and 18 tests passed.
+- 2026-07-22: `npm run typecheck` - exit 0 after implementation.
+- 2026-07-22: `cargo test discover_tests` - first run timed out after 184 seconds while waiting on Cargo artifact locking; treated as inconclusive and rerun with a longer timeout.
+- 2026-07-22: `cargo test discover_tests` - exit 0 on rerun; 11 Rust tests passed.
+- 2026-07-22: `npm run test -- src/tests/unit/parseDiscoveredFile.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/unit/generatedFileCapabilities.test.ts src/tests/unit/parseFile.pdf.test.ts src/tests/unit/parseFile.docx.test.ts src/tests/integration/folderScan.v1.test.ts` - exit 0 after self-review copy fix; 6 files and 41 tests passed.
+- 2026-07-22: `npm run typecheck` - exit 0 after self-review.
+- 2026-07-22: `npm run check:file-capabilities` - exit 0 after self-review; validated 4 capabilities and 4 generated artifacts.
+- 2026-07-22: `cargo test` - exit 0 after self-review; 27 Rust tests passed.
+- 2026-07-22: `npm run test` - exit 0; 16 files and 99 tests passed.
+- 2026-07-22: `cargo fmt --check` - first run exit 1 because the new generated Rust helper needed rustfmt line wrapping.
+- 2026-07-22: `npm run generate:file-capabilities` - exit 0 after fixing the generator template; wrote 4 generated capability artifacts.
+- 2026-07-22: `npm run check:file-capabilities` - exit 0 after generator formatting fix; validated 4 capabilities and 4 generated artifacts.
+- 2026-07-22: `cargo fmt --check` - exit 0 after generator formatting fix.
+- 2026-07-22: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior and pre-existing modified files.
 
 ## Verification results
 
@@ -225,6 +245,13 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-21: Passing TypeScript typecheck after tightening watcher test unwatch mock typing.
 - 2026-07-21: Passing Rust verification: 16 tests passed, including discovery tests that now cover every generated supported extension.
 - 2026-07-21: Passing Rust formatting and diff hygiene with only line-ending warnings.
+- 2026-07-22: Passing capability drift validation after parser/diagnostics migration and generator formatting fix.
+- 2026-07-22: Passing focused parser/diagnostics/generated capability verification: 18 Vitest tests across `parseDiscoveredFile`, `indexDiagnostics`, generated capabilities, and PDF/DOCX parser suites.
+- 2026-07-22: Passing broader affected TypeScript verification after self-review: 41 Vitest tests across parser routing, diagnostics, generated capabilities, PDF/DOCX parser suites, and folder-scan integration.
+- 2026-07-22: Passing full frontend test suite: 99 Vitest tests across 16 files.
+- 2026-07-22: Passing TypeScript typecheck.
+- 2026-07-22: Passing Rust verification: 27 tests passed, including native OCR/DOC command tests that now use generated parser metadata for extension gating.
+- 2026-07-22: Passing Rust formatting and diff hygiene after fixing the generator template.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
@@ -248,6 +275,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Compile the generated Rust artifact by exposing it as a crate-root module, but do not call it from Rust discovery until the Rust consumer migration slice.
 - Treat 2.3 as the TypeScript domain/UI consumer migration only. The generated `FileExtension` type is now the public document-domain extension type, and the document library file-type filter renders from generated options.
 - Treat 2.4 as the Rust discovery and watcher event-filter migration only. The generated extension list is now active for `discover_supported_files` and `watchIndexedFolders`; parser routing, native parser command extension checks, SQLite schema/migrations, diagnostics, and docs remain separate ordered slices.
+- Treat 2.5 as parser-routing and diagnostics migration only. Parser route selection now depends on generated `parserId`, `parseRuntime`, and OCR metadata; native commands use generated parser/OCR parser checks after root containment. SQLite schema/migrations and generated documentation inclusion remain deferred to the next ordered Phase 2 slices.
 
 ## Files or systems affected
 
@@ -269,6 +297,13 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - `src/domain/documents/types.ts` now imports and re-exports the generated `FileExtension` type.
 - `src/features/documents/screens/DocumentLibraryScreen.tsx` now renders file-type filter options from generated capability data.
 - `src/features/folders/services/watchIndexedFolders.ts` now uses generated TypeScript capability data for native watcher event filtering.
+- `scripts/validate-file-capabilities.mjs`, `src/domain/documents/generatedFileCapabilities.ts`, and `src-tauri/src/generated_file_capabilities.rs` now expose generated capability lookup helpers used by parser routing, diagnostics, and native parser extension gates.
+- `src/domain/ingestion/parseFile.ts` now dispatches browser-safe parsers by generated `parserId` and rejects native-only routes from the browser parser boundary.
+- `src/features/folders/services/parseDiscoveredFile.ts` now routes native parsing and OCR fallback by generated `parseRuntime` and OCR metadata.
+- `src-tauri/src/commands/file_commands.rs` now gates OCR and legacy DOC native commands through generated parser/OCR parser metadata after root containment checks.
+- `src/features/folders/services/getIndexDiagnostics.ts` now returns generated supported-format metadata for diagnostics consumers.
+- `src/features/documents/screens/DocumentLibraryScreen.tsx` now derives diagnostics/about supported-format wording from diagnostics metadata.
+- `src/tests/unit/parseDiscoveredFile.test.ts`, `src/tests/integration/indexDiagnostics.test.ts`, and `src/tests/unit/generatedFileCapabilities.test.ts` now cover generated parser routing and diagnostics metadata drift.
 - `src/tests/unit/generatedFileCapabilities.test.ts` verifies generated TypeScript extension/filter consumers derive from capability entries and reject unknown extensions.
 - `src/tests/unit/watchIndexedFolders.test.ts` verifies native watcher events trigger for every generated supported extension and ignore a known unsupported extension.
 - `src/tests/fixtures/searchLatencyFixtures.ts` added as generated in-memory fixture data for search-latency work.
@@ -287,6 +322,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - No Windows junction, reparse-point, UNC traversal, Linux/macOS discovery, long-running watcher stress, or packaged-app existing-database behavior was newly verified during 1.6; those remain source-inspected or deferred to later platform/security units.
 - No generated registry artifacts, Rust/TypeScript drift validation command, schema generation, Linux/macOS discovery behavior, packaged-app migration, or runtime consumer migration was verified during 2.1; those remain deferred to Phase 2 implementation units.
 - No runtime consumer migration, schema rewrite, migration rewrite, UI filter rewrite, Linux/macOS discovery behavior, packaged-app migration, or generated documentation inclusion in README was verified during 2.2; those remain deferred to later Phase 2 and Phase 8 units.
+- No Linux/macOS native OCR/DOC parser behavior, packaged-app parser behavior, SQLite schema/migration rewrite, or generated documentation inclusion in README was newly verified during 2.5; this unit verified Windows-hosted tests and source-level generated parser metadata use.
 
 ## Git, merge, release, or deployment actions
 

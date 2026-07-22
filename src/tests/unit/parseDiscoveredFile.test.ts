@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { parseDiscoveredFile } from "../../features/folders/services/parseDiscoveredFile";
+import { SUPPORTED_FILE_CAPABILITIES } from "../../domain/documents/generatedFileCapabilities";
 import { parseFileContent } from "../../domain/ingestion/parseFile";
 import { invokeExtractDocTextUnderRoot, invokeOcrPdfTextUnderRoot } from "../../features/folders/services/tauriFolderFs";
 
@@ -86,6 +87,49 @@ describe("parseDiscoveredFile", () => {
     expect(result.parseStatus).toBe("parsed_text");
     expect(result.extractedText).toContain("legacy doc");
     expect(parseFileContent).not.toHaveBeenCalled();
+  });
+
+  it("routes every generated native parser capability through native extraction", async () => {
+    const nativeCapabilities = SUPPORTED_FILE_CAPABILITIES.filter((capability) => capability.parseRuntime === "native");
+    expect(nativeCapabilities).toHaveLength(1);
+    vi.mocked(invokeExtractDocTextUnderRoot).mockResolvedValue("native parser body");
+
+    for (const capability of nativeCapabilities) {
+      const result = await parseDiscoveredFile({
+        rootPath: "/root",
+        absolutePath: `/root/a.${capability.extension}`,
+        extension: capability.extension,
+        bytes: new Uint8Array([1, 2, 3]),
+      });
+
+      expect(result.parseStatus).toBe("parsed_text");
+      expect(result.extractedText).toBe("native parser body");
+    }
+    expect(parseFileContent).not.toHaveBeenCalled();
+    expect(invokeExtractDocTextUnderRoot).toHaveBeenCalledTimes(nativeCapabilities.length);
+  });
+
+  it("uses OCR fallback for every generated OCR-capable parser", async () => {
+    const ocrCapabilities = SUPPORTED_FILE_CAPABILITIES.filter((capability) => capability.ocr.supported);
+    expect(ocrCapabilities).toHaveLength(1);
+    vi.mocked(parseFileContent).mockResolvedValue({
+      status: "parsed_text",
+      extractedText: " ",
+    });
+    vi.mocked(invokeOcrPdfTextUnderRoot).mockResolvedValue("generated OCR route");
+
+    for (const capability of ocrCapabilities) {
+      const result = await parseDiscoveredFile({
+        rootPath: "/root",
+        absolutePath: `/root/a.${capability.extension}`,
+        extension: capability.extension,
+        bytes: new Uint8Array([1, 2, 3]),
+      });
+
+      expect(result.parseStatus).toBe("parsed_ocr");
+      expect(result.extractedText).toBe("generated OCR route");
+    }
+    expect(invokeOcrPdfTextUnderRoot).toHaveBeenCalledTimes(ocrCapabilities.length);
   });
 
   it("marks parse_failed when OCR fallback fails and no text exists", async () => {

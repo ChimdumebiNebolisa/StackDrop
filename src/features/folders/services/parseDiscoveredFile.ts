@@ -1,4 +1,5 @@
 import type { ParseStatus } from "../../../domain/documents/types";
+import { getFileCapability } from "../../../domain/documents/generatedFileCapabilities";
 import { parseFileContent } from "../../../domain/ingestion/parseFile";
 import { invokeExtractDocTextUnderRoot, invokeOcrPdfTextUnderRoot } from "./tauriFolderFs";
 
@@ -17,21 +18,29 @@ export interface ParseDiscoveredFileResult {
 
 const PDF_OCR_MIN_TEXT_CHARS = 24;
 
-function normalizeExt(extension: string): string {
-  const e = extension.trim().toLowerCase();
-  if (!e) return "";
-  return e.startsWith(".") ? e : `.${e}`;
-}
-
 function looksNearEmptyText(text: string | undefined): boolean {
   if (!text) return true;
   return text.replace(/\s+/g, "").length < PDF_OCR_MIN_TEXT_CHARS;
 }
 
 export async function parseDiscoveredFile(input: ParseDiscoveredFileInput): Promise<ParseDiscoveredFileResult> {
-  const ext = normalizeExt(input.extension);
+  const capability = getFileCapability(input.extension);
+  if (!capability) {
+    return {
+      parseStatus: "parse_failed",
+      extractedText: null,
+      parseError: "Missing or unsupported file extension.",
+    };
+  }
 
-  if (ext === ".doc") {
+  if (capability.parseRuntime === "native") {
+    if (capability.parserId !== "doc-antiword") {
+      return {
+        parseStatus: "parse_failed",
+        extractedText: null,
+        parseError: `Unsupported native parser route: ${capability.parserId}`,
+      };
+    }
     try {
       const extracted = await invokeExtractDocTextUnderRoot(input.rootPath, input.absolutePath);
       const text = extracted.trim();
@@ -52,7 +61,7 @@ export async function parseDiscoveredFile(input: ParseDiscoveredFileInput): Prom
     }
   }
 
-  const parsed = await parseFileContent(ext, input.bytes);
+  const parsed = await parseFileContent(capability.extension, input.bytes);
   if (parsed.status === "parse_failed") {
     return {
       parseStatus: "parse_failed",
@@ -61,7 +70,7 @@ export async function parseDiscoveredFile(input: ParseDiscoveredFileInput): Prom
     };
   }
 
-  if (ext !== ".pdf" || !looksNearEmptyText(parsed.extractedText)) {
+  if (!capability.ocr.supported || !looksNearEmptyText(parsed.extractedText)) {
     return {
       parseStatus: "parsed_text",
       extractedText: parsed.extractedText ?? "",

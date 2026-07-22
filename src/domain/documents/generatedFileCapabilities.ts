@@ -64,6 +64,16 @@ export function isSupportedFileExtension(value: string): value is FileExtension 
   return (SUPPORTED_FILE_EXTENSIONS as readonly string[]).includes(value.toLowerCase());
 }
 
+function normalizeExtension(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.startsWith(".") ? trimmed.slice(1) : trimmed;
+}
+
+export function getFileCapability(value: string): FileCapability | null {
+  const extension = normalizeExtension(value);
+  return SUPPORTED_FILE_CAPABILITIES.find((capability) => capability.defaultEnabled && capability.extension === extension) ?? null;
+}
+
 export const FILE_EXTENSION_FILTER_OPTIONS = [
   { value: "txt", label: "Text" },
   { value: "pdf", label: "PDF" },
