@@ -44,15 +44,27 @@ PDF text is extracted locally. Scanned PDFs may use bundled local OCR and can ta
 
 Unsupported file types are skipped during discovery.
 
-## Document Summaries
+## Document Summaries (BYOK)
 
-Document summaries are optional and use your own OpenAI API key:
+Document summaries are an optional **bring your own key (BYOK)** feature. StackDrop does not include, sell, proxy, or share an OpenAI API key. Each user must create an API key in their own OpenAI Platform project, and that project must have the required model access, billing setup, and available quota. Organization IDs and project IDs identify OpenAI resources but are not API keys; Settings requires the secret API key value shown when the key is created.
+
+### Set up your key
 
 1. Open **Settings** and enter the key under **Document summaries**.
 2. Open an indexed document with extracted text and choose **Summarize**.
 3. Review the disclosure, then choose **Generate summary** to make one request.
 
-On Windows, StackDrop stores the key in Windows Credential Manager under service `com.stackdrop.app` and account `openai-api-key`. The saved key is retrieved only by native Rust code, is never returned to React, and is not written to SQLite, browser storage, a configuration file, or an environment variable. Non-Windows development builds use memory-only session storage and report that limitation in Settings.
+The key is saved once and reused for later explicit summary requests. Settings reports whether a key is configured but never displays the saved value, a partial value, or a fingerprint. Use **Replace key** to store a different key and **Remove key** to delete the configured credential. Removing the key immediately disables new summaries until another key is saved.
+
+### How the BYOK credential is protected
+
+On Windows, StackDrop stores the key in Windows Credential Manager under service `com.stackdrop.app` and account `openai-api-key`. Only native Rust code can retrieve the saved credential. The React frontend can submit a new or replacement key but cannot read the stored key back.
+
+StackDrop does not store the key in SQLite, `localStorage`, `sessionStorage`, a Tauri plaintext store, a configuration file, a frontend environment variable, or the application bundle. Installed builds do not read `OPENAI_API_KEY` or repository `.env` files. The native summary command reads the credential at request time and uses it only in the HTTPS Authorization header; the key is never placed in the document content or model instructions. Non-Windows development builds use memory-only session storage and clearly report that limitation in Settings rather than falling back to plaintext persistence.
+
+Windows may retain an application's Credential Manager entry after uninstall. Use **Remove key** in StackDrop Settings before uninstalling if the credential should be deleted first.
+
+### Data sent and billing ownership
 
 Indexing, parsing, SQLite data, FTS search, diagnostics, folder paths, and unrelated documents stay local. A summary request sends only the selected document's prepared extracted text plus its filename, relative path, and extension to the OpenAI Responses API. StackDrop never sends the absolute path, folder root, parse errors, diagnostics, database contents, the source file, or the API key as model input. OpenAI API usage and any resulting cost are charged to the OpenAI account associated with the user's key.
 
