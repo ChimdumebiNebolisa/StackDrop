@@ -1,6 +1,6 @@
 # StackDrop PRD
 
-Version: v2.1.4
+Version: v2.1.5
 Status: Active product definition
 Date: 2026-07-10
 

@@ -220,6 +220,6 @@ Primary Codex `/feedback` session ID: `019f8607-9df0-7472-b611-d73b6d49455a`
 
 ## Release Workflow
 
-GitHub Releases are the distribution path for normal users. A version tag such as `v2.1.4` builds Windows installers in GitHub Actions and attaches the NSIS `.exe` and MSI `.msi` artifacts to the release.
+GitHub Releases are the distribution path for normal users. A version tag such as `v2.1.5` builds Windows installers in GitHub Actions and attaches the NSIS `.exe` and MSI `.msi` artifacts to the release.
 
 See [docs/RELEASE.md](docs/RELEASE.md) for the release checklist.

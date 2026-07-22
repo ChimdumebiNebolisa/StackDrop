@@ -1,6 +1,6 @@
 # StackDrop Architecture
 
-Version: v2.1.4
+Version: v2.1.5
 Status: Active architecture notes
 Date: 2026-07-10
 

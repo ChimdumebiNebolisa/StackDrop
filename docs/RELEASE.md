@@ -14,7 +14,7 @@ Update these files together when changing the app version:
 - `src-tauri/Cargo.toml`
 - `src-tauri/Cargo.lock`
 
-The GitHub tag should match the app version with a leading `v`, for example `v2.1.4`.
+The GitHub tag should match the app version with a leading `v`, for example `v2.1.5`.
 
 ## 2. Verify Locally
 
@@ -59,11 +59,11 @@ git push origin main
 After verification passes and `main` is pushed:
 
 ```powershell
-git tag v2.1.4
-git push origin v2.1.4
+git tag v2.1.5
+git push origin v2.1.5
 ```
 
-Replace `v2.1.4` with the selected version.
+Replace `v2.1.5` with the selected version.
 
 ## 6. Download the Installer
 

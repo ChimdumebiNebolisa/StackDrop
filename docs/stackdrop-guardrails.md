@@ -1,6 +1,6 @@
 # StackDrop Guardrails
 
-Version: v2.1.4
+Version: v2.1.5
 Status: Active
 Date: 2026-05-12
 
