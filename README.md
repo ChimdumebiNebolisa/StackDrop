@@ -197,7 +197,7 @@ GPT-5.6 does **not** discover files, parse documents, create the SQLite index, r
 
 The new extension consists of secure BYOK settings, a native OpenAI request boundary, explicit selected-document summaries, a validated structured summary drawer, privacy disclosure, deterministic long-document sampling, and scoped automated coverage. The deliberately excluded work includes chat, cross-document synthesis, citations, embeddings, vector search, saved summaries, summary history, automatic summarization, and background AI requests.
 
-Primary Codex `/feedback` session ID: `TODO: add submission session ID`
+Primary Codex `/feedback` session ID: `019f8607-9df0-7472-b611-d73b6d49455a`
 
 ## Release Workflow
 
