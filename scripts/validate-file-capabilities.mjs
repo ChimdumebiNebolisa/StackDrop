@@ -11,7 +11,10 @@ const GENERATED_TS_PATH = "src/domain/documents/generatedFileCapabilities.ts";
 const GENERATED_DB_TS_PATH = "src/data/db/generatedFileCapabilities.ts";
 const GENERATED_RUST_PATH = "src-tauri/src/generated_file_capabilities.rs";
 const GENERATED_DOC_PATH = "docs/generated/supported-formats.md";
+const README_PATH = "README.md";
 const ALLOWED_RUNTIMES = new Set(["browser", "hybrid", "native"]);
+const README_SUPPORTED_FILES_START = "<!-- BEGIN GENERATED SUPPORTED FILES -->";
+const README_SUPPORTED_FILES_END = "<!-- END GENERATED SUPPORTED FILES -->";
 
 function repoPath(relativePath) {
   return path.join(REPO_ROOT, relativePath);
@@ -301,6 +304,38 @@ Deferred Tier 1 and Tier 2 formats are intentionally absent until their full ing
 `;
 }
 
+function generatedReadmeParserNote(capability) {
+  if (capability.ocr.supported) {
+    return `Local parser \`${capability.parserId}\`; low-text files may use local OCR fallback \`${capability.ocr.parserId}\`.`;
+  }
+  if (capability.parseRuntime === "native") {
+    return `Local native parser \`${capability.parserId}\`.`;
+  }
+  return `Local parser \`${capability.parserId}\`.`;
+}
+
+function generateReadmeSupportedFilesSection(capabilities) {
+  const rows = capabilities
+    .filter((capability) => capability.defaultEnabled)
+    .map(
+      (capability) =>
+        `| \`.${capability.extension}\` | ${capability.displayLabel} | ${generatedReadmeParserNote(capability)} | ${formatBytes(capability.maxFileSizeBytes)} |`,
+    )
+    .join("\n");
+
+  return `${README_SUPPORTED_FILES_START}
+## Supported Files
+
+StackDrop indexes these enabled file types:
+
+| Extension | Format | Local extraction | Max file size |
+|-----------|--------|------------------|---------------|
+${rows}
+
+Unsupported file types are skipped during discovery and are not counted in diagnostics. Deferred Tier 1 and Tier 2 formats are intentionally absent until their full ingestion, parser, diagnostics, UI, test, and documentation slices are implemented.
+${README_SUPPORTED_FILES_END}`;
+}
+
 async function readRegistry() {
   const text = await readFile(repoPath(REGISTRY_PATH), "utf8");
   return validateCapabilities(JSON.parse(text));
@@ -316,6 +351,30 @@ async function writeGenerated(files) {
     await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, content, "utf8");
   }
+}
+
+async function writeReadmeSection(expectedSection) {
+  const readmePath = repoPath(README_PATH);
+  const readme = await readFile(readmePath, "utf8");
+  const startIndex = readme.indexOf(README_SUPPORTED_FILES_START);
+  const endIndex = readme.indexOf(README_SUPPORTED_FILES_END);
+  let nextReadme = "";
+
+  if (startIndex >= 0 && endIndex > startIndex) {
+    const afterEnd = endIndex + README_SUPPORTED_FILES_END.length;
+    nextReadme = `${readme.slice(0, startIndex)}${expectedSection}${readme.slice(afterEnd)}`;
+  } else {
+    const heading = "## Supported Files";
+    const nextHeading = "\n## Document Summaries";
+    const headingIndex = readme.indexOf(heading);
+    const nextHeadingIndex = readme.indexOf(nextHeading, headingIndex);
+    if (headingIndex < 0 || nextHeadingIndex < 0) {
+      fail("Could not find README Supported Files section to update.");
+    }
+    nextReadme = `${readme.slice(0, headingIndex)}${expectedSection}${readme.slice(nextHeadingIndex)}`;
+  }
+
+  await writeFile(readmePath, nextReadme, "utf8");
 }
 
 async function checkGenerated(files) {
@@ -337,6 +396,19 @@ async function checkGenerated(files) {
   }
 }
 
+async function checkReadmeSection(expectedSection) {
+  const readme = await readFile(repoPath(README_PATH), "utf8");
+  const startIndex = readme.indexOf(README_SUPPORTED_FILES_START);
+  const endIndex = readme.indexOf(README_SUPPORTED_FILES_END);
+  if (startIndex < 0 || endIndex <= startIndex) {
+    fail(`README supported-file documentation is missing generated markers. Run: node scripts/validate-file-capabilities.mjs --write`);
+  }
+  const actualSection = readme.slice(startIndex, endIndex + README_SUPPORTED_FILES_END.length);
+  if (normalize(actualSection) !== normalize(expectedSection)) {
+    fail(`README supported-file documentation is out of date. Run: node scripts/validate-file-capabilities.mjs --write`);
+  }
+}
+
 async function main() {
   const mode = process.argv[2];
   if (mode !== "--check" && mode !== "--write") {
@@ -350,15 +422,20 @@ async function main() {
     [GENERATED_RUST_PATH]: generateRust(capabilities),
     [GENERATED_DOC_PATH]: generateDoc(capabilities),
   };
+  const readmeSection = generateReadmeSupportedFilesSection(capabilities);
 
   if (mode === "--write") {
     await writeGenerated(files);
-    console.log(`Wrote ${Object.keys(files).length} file capability artifacts.`);
+    await writeReadmeSection(readmeSection);
+    console.log(`Wrote ${Object.keys(files).length} file capability artifacts and README supported-file documentation.`);
     return;
   }
 
   await checkGenerated(files);
-  console.log(`Validated ${capabilities.length} file capabilities and ${Object.keys(files).length} generated artifacts.`);
+  await checkReadmeSection(readmeSection);
+  console.log(
+    `Validated ${capabilities.length} file capabilities, ${Object.keys(files).length} generated artifacts, and README supported-file documentation.`,
+  );
 }
 
 main().catch((error) => {

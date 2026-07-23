@@ -31,19 +31,20 @@ MSI packages may also be attached to releases for managed install workflows, but
 
 StackDrop does not require an account and does not delete, rename, or move your documents. It never uploads files themselves. The optional summary feature sends only the bounded prepared text and limited metadata described below.
 
+<!-- BEGIN GENERATED SUPPORTED FILES -->
 ## Supported Files
 
-StackDrop indexes these file types:
+StackDrop indexes these enabled file types:
 
-- `.txt`
-- `.pdf`
-- `.docx`
-- `.doc`
+| Extension | Format | Local extraction | Max file size |
+|-----------|--------|------------------|---------------|
+| `.txt` | Text | Local parser `txt-utf8`. | 50 MiB |
+| `.pdf` | PDF | Local parser `pdf-text`; low-text files may use local OCR fallback `pdf-ocr`. | 50 MiB |
+| `.docx` | Word document | Local parser `docx-mammoth`. | 50 MiB |
+| `.doc` | Legacy Word document | Local native parser `doc-antiword`. | 50 MiB |
 
-PDF text is extracted locally. Scanned PDFs may use bundled local OCR and can take longer. DOCX parsing uses local document text extraction. Legacy `.doc` files use a bundled local extraction tool when available.
-
-Unsupported file types are skipped during discovery.
-
+Unsupported file types are skipped during discovery and are not counted in diagnostics. Deferred Tier 1 and Tier 2 formats are intentionally absent until their full ingestion, parser, diagnostics, UI, test, and documentation slices are implemented.
+<!-- END GENERATED SUPPORTED FILES -->
 ## Document Summaries
 
 Document summaries are optional and use your own OpenAI API key:

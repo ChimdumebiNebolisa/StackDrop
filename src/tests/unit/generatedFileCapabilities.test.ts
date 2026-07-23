@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -38,5 +40,19 @@ describe("generated file capabilities", () => {
       parseRuntime: "native",
     });
     expect(getFileCapability("md")).toBeNull();
+  });
+
+  it("keeps the README supported-file section aligned with generated capabilities", () => {
+    const readme = readFileSync(path.join(process.cwd(), "README.md"), "utf8");
+    const section = readme.match(
+      /<!-- BEGIN GENERATED SUPPORTED FILES -->[\s\S]*<!-- END GENERATED SUPPORTED FILES -->/,
+    )?.[0];
+
+    expect(section).toBeTruthy();
+    for (const capability of SUPPORTED_FILE_CAPABILITIES) {
+      expect(section).toContain(`| \`.${capability.extension}\` | ${capability.displayLabel} |`);
+    }
+    expect(section).not.toContain("`.md`");
+    expect(section).not.toContain("`.markdown`");
   });
 });
