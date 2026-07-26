@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createTestSqlClient } from "../../data/db/createTestSqlClient";
+import { FILE_EXTENSION_CHECK_SQL } from "../../data/db/generatedFileCapabilities";
 import { runMigrations } from "../../data/db/migrate";
 import type { SqlClient } from "../../data/db/sqliteClient";
 
@@ -22,7 +23,7 @@ describe("FTS v2 migration (relative_path column)", () => {
       absolute_path TEXT NOT NULL UNIQUE,
       relative_path TEXT NOT NULL,
       file_name TEXT NOT NULL,
-      file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'pdf', 'docx', 'doc')),
+      file_extension TEXT NOT NULL CHECK (${FILE_EXTENSION_CHECK_SQL}),
       size_bytes INTEGER NOT NULL,
       modified_at TEXT NOT NULL,
       parse_status TEXT NOT NULL CHECK (parse_status IN ('parsed_text', 'parsed_ocr', 'parse_failed')),

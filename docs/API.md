@@ -63,7 +63,7 @@ export async function refreshIndex(client: SqlClient) {
 
 ## Search parameters
 
-Filters are optional: `folderId`, `extension` (`txt` \| `pdf` \| `docx` \| `doc`), `parseStatus` (`parsed_text` \| `parsed_ocr` \| `parse_failed`), `sort` (`relevance` \| `recent`). When search text is non-empty, sort is forced to `relevance` (weighted bm25 ranking: filename > path > body). Empty search text with filters lists documents sorted by `updated_at DESC`.
+Filters are optional: `folderId`, `extension` (one of the generated supported extensions from `src/shared/fileCapabilities.json`), `parseStatus` (`parsed_text` \| `parsed_ocr` \| `parse_failed`), `sort` (`relevance` \| `recent`). When search text is non-empty, sort is forced to `relevance` (weighted bm25 ranking: filename > path > body). Empty search text with filters lists documents sorted by `updated_at DESC`.
 
 Search results include an optional `searchSnippet` with `<mark>` highlighted excerpts from the body.
 

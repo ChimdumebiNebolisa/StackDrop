@@ -1,4 +1,9 @@
 import schemaSql from "./schema.sql?raw";
+import {
+  FILE_EXTENSION_CHECK_SQL,
+  FILE_EXTENSION_DELETE_UNSUPPORTED_SQL,
+  GENERATED_FILE_EXTENSIONS,
+} from "./generatedFileCapabilities";
 import type { SqlClient } from "./sqliteClient";
 import { getAppSqlClient } from "./sqliteClient";
 
@@ -30,24 +35,38 @@ async function dropLegacyV0IfPresent(client: SqlClient): Promise<void> {
   }
 }
 
+function parseFileExtensionCheck(sql: string): string[] | null {
+  const match = sql.match(
+    /file_extension\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(\s*(?:\/\*[^*]*\*\/\s*)?file_extension\s+IN\s*\(([^)]*)\)/i,
+  );
+  if (!match) return null;
+  const quotedValues = Array.from(match[1].matchAll(/'((?:''|[^'])*)'/g), ([, value]) => value.replaceAll("''", "'"));
+  return quotedValues.length > 0 ? quotedValues : null;
+}
+
+function hasFinalFileExtensionCheck(sql: string): boolean {
+  const actualExtensions = parseFileExtensionCheck(sql);
+  return (
+    actualExtensions !== null &&
+    actualExtensions.length === GENERATED_FILE_EXTENSIONS.length &&
+    GENERATED_FILE_EXTENSIONS.every((extension, index) => actualExtensions[index] === extension)
+  );
+}
+
 /** True when `indexed_documents` already enforces final extension and parse-status checks. */
 function isIndexedDocumentsSchemaFinal(sql: string): boolean {
   return (
-    sql.includes("'txt'") &&
-    sql.includes("'pdf'") &&
-    sql.includes("'docx'") &&
-    sql.includes("'doc'") &&
+    hasFinalFileExtensionCheck(sql) &&
     sql.includes("'parsed_text'") &&
     sql.includes("'parsed_ocr'") &&
     sql.includes("'parse_failed'") &&
-    !sql.includes("'md'") &&
     !sql.includes("'indexed'") &&
     !sql.includes("'failed'")
   );
 }
 
 /**
- * Normalizes `indexed_documents` to the canonical extension set (`txt`, `pdf`, `docx`, `doc`),
+ * Normalizes `indexed_documents` to the generated canonical extension set,
  * upgrades parse statuses from legacy values (`indexed`, `failed`) to
  * (`parsed_text`, `parse_failed`), drops rows for unsupported extensions,
  * and rebuilds table constraints when needed.
@@ -62,11 +81,11 @@ export async function migrateIndexedDocumentsSchema(client: SqlClient): Promise<
   await client.execute("PRAGMA foreign_keys=OFF");
   await client.execute(
     `DELETE FROM document_search WHERE document_id IN (
-       SELECT id FROM indexed_documents WHERE file_extension NOT IN ('txt','pdf','docx','doc')
+       SELECT id FROM indexed_documents WHERE ${FILE_EXTENSION_DELETE_UNSUPPORTED_SQL}
      )`,
   );
   await client.execute(
-    `DELETE FROM indexed_documents WHERE file_extension NOT IN ('txt','pdf','docx','doc')`,
+    `DELETE FROM indexed_documents WHERE ${FILE_EXTENSION_DELETE_UNSUPPORTED_SQL}`,
   );
   await client.execute(`CREATE TABLE indexed_documents__mig (
     id TEXT PRIMARY KEY,
@@ -74,7 +93,7 @@ export async function migrateIndexedDocumentsSchema(client: SqlClient): Promise<
     absolute_path TEXT NOT NULL UNIQUE,
     relative_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
-    file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'pdf', 'docx', 'doc')),
+    file_extension TEXT NOT NULL CHECK (${FILE_EXTENSION_CHECK_SQL}),
     size_bytes INTEGER NOT NULL,
     modified_at TEXT NOT NULL,
     parse_status TEXT NOT NULL CHECK (parse_status IN ('parsed_text', 'parsed_ocr', 'parse_failed')),

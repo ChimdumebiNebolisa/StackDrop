@@ -1,8 +1,8 @@
 # StackDrop Daily Roadmap Progress
 
-Last updated: 2026-07-23
+Last updated: 2026-07-26
 Current roadmap phase: Phase 2 - Canonical file-type capability registry
-Current in-progress work unit: None; next is 2.7 Remove obsolete handwritten extension lists
+Current in-progress work unit: None; next is 2.8 Add drift-regression tests
 
 ## Ordered work-unit checklist
 
@@ -23,7 +23,7 @@ Current in-progress work unit: None; next is 2.7 Remove obsolete handwritten ext
 - [x] 2.4 Migrate Rust discovery and watcher consumers.
 - [x] 2.5 Migrate parser routing and diagnostics.
 - [x] 2.6 Generate or validate supported-format documentation.
-- [ ] 2.7 Remove obsolete handwritten extension lists.
+- [x] 2.7 Remove obsolete handwritten extension lists.
 - [ ] 2.8 Add drift-regression tests.
 
 ### Phase 3 - Tier 1 file formats
@@ -89,16 +89,16 @@ Current in-progress work unit: None; next is 2.7 Remove obsolete handwritten ext
 - 2.4 Migrate Rust discovery and watcher consumers (2026-07-21). Replaced the Rust discovery handwritten extension matcher with `generated_file_capabilities::supported_extension` and replaced the TypeScript watcher event set with `SUPPORTED_FILE_EXTENSIONS` from generated TypeScript capabilities. Added regression coverage that discovery accepts every generated Rust extension and skips unsupported extensions, and that native watcher events dirty folders for every generated TypeScript extension while ignoring known unsupported extensions. Verified with capability drift validation, focused and broader affected Vitest coverage, TypeScript typecheck, full Rust tests, Rust formatting, and diff hygiene.
 - 2.5 Migrate parser routing and diagnostics (2026-07-22). Added generated TypeScript and Rust capability lookup helpers, routed browser parser dispatch through generated `parserId`/`parseRuntime`, routed scan-level native and OCR parser decisions through generated capability metadata, and changed Rust native parser extension gates to generated parser/OCR parser metadata. Diagnostics now returns generated supported-format metadata and the document library diagnostics/about copy derives supported-format wording from diagnostics rather than a handwritten TXT/PDF/DOCX/DOC sentence. Added regression coverage for generated lookup helpers, native/OCR scan routing, and diagnostics supported-format metadata. Verified with capability drift validation, focused and full Vitest coverage, TypeScript typecheck, full Rust tests, Rust formatting, and diff hygiene.
 - 2.6 Generate or validate supported-format documentation (2026-07-23). Changed `README.md` supported-file claims into a generated block derived from `src/shared/fileCapabilities.json`, extended the capability validator so `npm run check:file-capabilities` fails when the README block is missing or stale, and added Vitest coverage that the README block contains every generated active extension while still excluding deferred Markdown formats. Verified with capability validation, focused generated-capability Vitest, full Vitest, TypeScript typecheck, and diff hygiene.
+- 2.7 Remove obsolete handwritten extension lists (2026-07-26). Migrated database migration extension cleanup/rebuild SQL to generated database capability helpers, put the fresh `schema.sql` file-extension `CHECK` under capability validation markers, extended `npm run check:file-capabilities` so stale schema extension checks fail, and replaced active final-schema test fixtures/docs that repeated the current supported-extension list. Verified with capability validation, focused migration/capability tests, full Vitest, TypeScript typecheck, and diff hygiene.
 
 ## Current work-unit blast radius
 
-Completed 2.6 on 2026-07-23. README supported-format claims are now generated and validated from the canonical capability registry alongside the existing generated documentation artifact. Runtime discovery, watcher filtering, parser routing, diagnostics service behavior, SQLite schema/migrations, search, packaging, and Tauri capability files were intentionally unchanged.
+Completed 2.7 on 2026-07-26. Database extension declarations now derive from or are validated against the canonical capability registry: migration cleanup/rebuild SQL imports generated database helpers, `schema.sql` has a generated/validated extension-check block, and active migration/capability tests assert database helpers and schema stay aligned. Runtime discovery, watcher filtering, parser routing, diagnostics service behavior, search ranking, UI controls, packaging, and Tauri capability files were intentionally unchanged.
 
 ## Deferred items
 
 - All later roadmap units remain deferred until their prerequisites are complete.
-- Phase 2 remaining consumer migration remains deferred: SQLite schema/migrations, obsolete list removal, and additional drift-regression tests.
-- Phase 2 schema consumption remains deferred; 2.2 generates database SQL-helper constants but does not rewrite `schema.sql` or migration cleanup logic.
+- Phase 2 remaining work is deferred to additional drift-regression tests.
 - Larger 10,000-document and 100,000-document generated corpora remain deferred to Phase 6 performance work; this unit defines a small representative corpus and does not commit generated databases or latency thresholds.
 - Strict Clippy cleanup is deferred to its ordered Phase 7 formatting/clippy work unit; the findings do not block the passing documented build or test commands.
 - Phase 5 search semantic improvements remain deferred; the new baseline document records current behavior and known gaps without changing ranking.
@@ -267,7 +267,22 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - 2026-07-23: Passing full frontend test suite: 100 Vitest tests across 16 files.
 - 2026-07-23: Passing TypeScript typecheck.
 - 2026-07-23: Passing diff hygiene with only line-ending warnings.
+- 2026-07-26: `git status --short` - exit 0; observed pre-existing modified proof screenshots and generated Tauri schema files before this run's edits.
+- 2026-07-26: Required inspection commands for automation memory, `AGENTS.md`, `README.md`, architecture docs, capability registry design, producer-to-consumer map, database docs, package/Cargo manifests, generated capability artifacts, schema, migrations, relevant tests, and extension-list searches - exit 0.
+- 2026-07-26: `npm run check:file-capabilities` - exit 0 before edits; validated 4 file capabilities, 4 generated artifacts, and README supported-file documentation.
+- 2026-07-26: `npm run check:file-capabilities` - exit 0 after edits; validated 4 file capabilities, 4 generated artifacts, `schema.sql` extension check, and README supported-file documentation.
+- 2026-07-26: `npm run test -- src/tests/unit/generatedFileCapabilities.test.ts src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts` - exit 0 after first implementation; 3 files and 12 tests passed.
+- 2026-07-26: `npm run test -- src/tests/unit/generatedFileCapabilities.test.ts src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts src/tests/integration/indexDiagnostics.test.ts` - exit 0 after self-review cleanup; 4 files and 16 tests passed.
+- 2026-07-26: `npm run typecheck` - exit 0.
+- 2026-07-26: `npm run test -- src/tests/integration/migrate.docx.test.ts src/tests/integration/migrate.fts-v2.test.ts src/tests/integration/indexDiagnostics.test.ts src/tests/integration/folderScan.v1.test.ts src/tests/unit/generatedFileCapabilities.test.ts src/tests/unit/parseDiscoveredFile.test.ts` - exit 0; 6 files and 47 tests passed.
+- 2026-07-26: `npm run test` - exit 0; 16 files and 103 tests passed.
+- 2026-07-26: `git diff --check` - exit 0; Git emitted line-ending warnings for existing Windows checkout behavior and pre-existing modified generated Tauri schema files.
 - Passing: TypeScript typecheck; 66 Vitest unit/integration tests; frontend production build; 9 Playwright E2E tests; 16 Rust tests; Rust formatting; Windows application and MSI/NSIS packaging.
+- 2026-07-26: Passing capability drift validation now includes `schema.sql` extension-check validation.
+- 2026-07-26: Passing focused database/capability verification: 16 Vitest tests across generated capability and migration/diagnostics suites.
+- 2026-07-26: Passing full frontend test suite: 103 Vitest tests across 16 files.
+- 2026-07-26: Passing TypeScript typecheck.
+- 2026-07-26: Passing diff hygiene with only line-ending warnings.
 - Failing baseline: strict Clippy, exit 101, with four existing warnings promoted to errors.
 - Unavailable baseline: JavaScript/TypeScript lint, because no lint command/configuration exists.
 
@@ -292,6 +307,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - Treat 2.4 as the Rust discovery and watcher event-filter migration only. The generated extension list is now active for `discover_supported_files` and `watchIndexedFolders`; parser routing, native parser command extension checks, SQLite schema/migrations, diagnostics, and docs remain separate ordered slices.
 - Treat 2.5 as parser-routing and diagnostics migration only. Parser route selection now depends on generated `parserId`, `parseRuntime`, and OCR metadata; native commands use generated parser/OCR parser checks after root containment. SQLite schema/migrations and generated documentation inclusion remain deferred to the next ordered Phase 2 slices.
 - Treat 2.6 as generated documentation validation only. README supported-file claims now derive from the capability registry, while SQLite schema/migrations and obsolete handwritten extension lists remain separate Phase 2 slices.
+- Treat 2.7 as database extension-list cleanup only. `schema.sql` still contains literal SQL because SQLite consumes a static raw schema file, but the extension-check expression is marked and validated by the capability generator; migration code imports generated SQL helpers instead of maintaining an active duplicate list.
 
 ## Files or systems affected
 
@@ -324,6 +340,11 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - `README.md` now has a generated supported-file section derived and validated by `scripts/validate-file-capabilities.mjs`.
 - `scripts/validate-file-capabilities.mjs` now updates and validates the generated README supported-file section in addition to checked-in generated capability artifacts.
 - `src/tests/unit/generatedFileCapabilities.test.ts` now verifies the README generated block lists generated active extensions and excludes deferred Markdown formats.
+- `src/data/db/schema.sql` now marks the file-extension `CHECK` expression as generated/validated from file capabilities.
+- `src/data/db/migrate.ts` now imports generated database capability SQL helpers for final-schema detection, unsupported-row cleanup, and table rebuilds.
+- `scripts/validate-file-capabilities.mjs` now validates and writes the generated `schema.sql` file-extension check.
+- `src/tests/integration/migrate.docx.test.ts`, `src/tests/integration/migrate.fts-v2.test.ts`, `src/tests/integration/indexDiagnostics.test.ts`, and `src/tests/unit/generatedFileCapabilities.test.ts` now cover generated database capability helper usage and schema drift.
+- `docs/API.md`, `docs/DATABASE.md`, `docs/DATABASE_SCHEMA_MIGRATION_MAP.md`, `docs/PRODUCER_CONSUMER_ARCHITECTURE.md`, and `docs/stackdrop-architecture.md` now describe generated supported-extension/database behavior instead of active handwritten extension lists.
 - `src/tests/unit/watchIndexedFolders.test.ts` verifies native watcher events trigger for every generated supported extension and ignore a known unsupported extension.
 - `src/tests/fixtures/searchLatencyFixtures.ts` added as generated in-memory fixture data for search-latency work.
 - `src/tests/unit/searchLatencyFixtures.test.ts` added to verify fixture determinism and coverage of current search paths.
@@ -342,6 +363,7 @@ None. Baseline failures are recorded below rather than treated as blockers.
 - No generated registry artifacts, Rust/TypeScript drift validation command, schema generation, Linux/macOS discovery behavior, packaged-app migration, or runtime consumer migration was verified during 2.1; those remain deferred to Phase 2 implementation units.
 - No runtime consumer migration, schema rewrite, migration rewrite, UI filter rewrite, Linux/macOS discovery behavior, packaged-app migration, or generated documentation inclusion in README was verified during 2.2; those remain deferred to later Phase 2 and Phase 8 units.
 - No Linux/macOS native OCR/DOC parser behavior, packaged-app parser behavior, SQLite schema/migration rewrite, or generated documentation inclusion in README was newly verified during 2.5; this unit verified Windows-hosted tests and source-level generated parser metadata use.
+- No packaged-app existing-database migration was opened manually during 2.7; migration behavior was verified through the TypeScript SQLite test harness on Windows.
 
 ## Git, merge, release, or deployment actions
 

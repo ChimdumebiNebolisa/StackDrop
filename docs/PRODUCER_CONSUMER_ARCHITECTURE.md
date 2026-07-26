@@ -47,7 +47,7 @@ flowchart TD
 | System stage | Primary producers | Primary consumers | Current contract |
 |--------------|-------------------|-------------------|------------------|
 | Root registration | `get_default_document_roots`, `open_folder_dialog`, `ensureDefaultLibraryRoots`, `addIndexedFolder` | `indexed_folders`, scan services, UI location controls | Roots are canonical local directories. Duplicate roots are rejected by SQLite uniqueness and service checks. |
-| Filesystem discovery | `discover_supported_files` in `src-tauri/src/commands/file_commands.rs` | `runFolderScan`, watcher signature polling, E2E shims, discovery tests | Returns sorted supported-file DTOs for `txt`, `pdf`, `docx`, and `doc` under one root. Unsupported files are skipped before TypeScript sees them. |
+| Filesystem discovery | `discover_supported_files` in `src-tauri/src/commands/file_commands.rs` | `runFolderScan`, watcher signature polling, E2E shims, discovery tests | Returns sorted supported-file DTOs for generated enabled capabilities under one root. Unsupported files are skipped before TypeScript sees them. |
 | Filesystem boundary | `src-tauri/src/path_utils.rs` | read, OCR, DOC extraction, folder picker normalization | Canonicalizes paths, strips Windows verbatim prefixes for frontend use, enforces root containment for file reads and native extractors, and caps byte reads at 50 MiB. |
 | Watch events | `watchIndexedFolders` plus `@tauri-apps/plugin-fs` and polling signatures | `runFolderScan`, React background indexing state | Supported-extension events trigger rescans. Unknown or extensionless paths also trigger rescans. Unsupported known extensions are ignored by event filtering, while polling sees only discovery output. |
 | Read and parse input | `runFolderScan` | `parseDiscoveredFile`, `DocumentRepository`, `DocumentSearchRepository`, scan counters | New, changed, failed, and missing rows are processed. Healthy unchanged rows are skipped by path, size, modified timestamp, and non-failed parse status. |
@@ -73,7 +73,7 @@ flowchart TD
 ### Background indexing
 
 1. `watchIndexedFolders` starts native recursive watchers and a polling fallback for registered folders.
-2. Watch events are filtered against the handwritten supported-extension set.
+2. Watch events are filtered against the generated supported-extension set.
 3. Polling builds a signature from `discover_supported_files`, so it shares the Rust supported-extension gate.
 4. A dirty folder triggers `runFolderScan` when no manual or automatic scan is already in flight.
 5. UI state records watcher health and surfaces auto-index failures.

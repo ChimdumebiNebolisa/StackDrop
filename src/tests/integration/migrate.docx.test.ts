@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createTestSqlClient } from "../../data/db/createTestSqlClient";
+import { GENERATED_FILE_EXTENSIONS } from "../../data/db/generatedFileCapabilities";
 import { migrateIndexedDocumentsSchema } from "../../data/db/migrate";
 import type { SqlClient } from "../../data/db/sqliteClient";
 import { DocumentRepository } from "../../data/repositories/documentRepository";
@@ -32,6 +33,12 @@ async function createLegacyV11Tables(client: SqlClient): Promise<void> {
     file_name,
     body
   )`);
+}
+
+function extractFileExtensionCheckValues(sql: string): string[] {
+  const match = sql.match(/file_extension\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(\s*file_extension\s+IN\s*\(([^)]*)\)/i);
+  expect(match).toBeTruthy();
+  return Array.from(match?.[1].matchAll(/'((?:''|[^'])*)'/g) ?? [], ([, value]) => value.replaceAll("''", "'"));
 }
 
 describe("migrateIndexedDocumentsSchema", () => {
@@ -99,5 +106,17 @@ describe("migrateIndexedDocumentsSchema", () => {
       "SELECT COUNT(*) as c FROM indexed_documents WHERE parse_status IN ('indexed', 'failed')",
     );
     expect(legacyStatusCount?.c).toBe(0);
+  });
+
+  it("rebuilds the file-extension check from generated database capabilities", async () => {
+    const client = await createTestSqlClient();
+    await createLegacyV11Tables(client);
+
+    await migrateIndexedDocumentsSchema(client);
+
+    const row = await client.get<{ sql: string }>(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='indexed_documents' LIMIT 1",
+    );
+    expect(extractFileExtensionCheckValues(row?.sql ?? "")).toEqual([...GENERATED_FILE_EXTENSIONS]);
   });
 });

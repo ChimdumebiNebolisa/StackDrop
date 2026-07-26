@@ -11,10 +11,13 @@ const GENERATED_TS_PATH = "src/domain/documents/generatedFileCapabilities.ts";
 const GENERATED_DB_TS_PATH = "src/data/db/generatedFileCapabilities.ts";
 const GENERATED_RUST_PATH = "src-tauri/src/generated_file_capabilities.rs";
 const GENERATED_DOC_PATH = "docs/generated/supported-formats.md";
+const SCHEMA_SQL_PATH = "src/data/db/schema.sql";
 const README_PATH = "README.md";
 const ALLOWED_RUNTIMES = new Set(["browser", "hybrid", "native"]);
 const README_SUPPORTED_FILES_START = "<!-- BEGIN GENERATED SUPPORTED FILES -->";
 const README_SUPPORTED_FILES_END = "<!-- END GENERATED SUPPORTED FILES -->";
+const SCHEMA_EXTENSION_CHECK_START = "/* BEGIN GENERATED FILE_EXTENSION_CHECK_SQL */";
+const SCHEMA_EXTENSION_CHECK_END = "/* END GENERATED FILE_EXTENSION_CHECK_SQL */";
 
 function repoPath(relativePath) {
   return path.join(REPO_ROOT, relativePath);
@@ -377,6 +380,19 @@ async function writeReadmeSection(expectedSection) {
   await writeFile(readmePath, nextReadme, "utf8");
 }
 
+async function writeSchemaExtensionCheck(expectedCheckSql) {
+  const schemaPath = repoPath(SCHEMA_SQL_PATH);
+  const schema = await readFile(schemaPath, "utf8");
+  const startIndex = schema.indexOf(SCHEMA_EXTENSION_CHECK_START);
+  const endIndex = schema.indexOf(SCHEMA_EXTENSION_CHECK_END);
+  if (startIndex < 0 || endIndex <= startIndex) {
+    fail("Could not find generated file-extension check markers in schema.sql.");
+  }
+  const afterEnd = endIndex + SCHEMA_EXTENSION_CHECK_END.length;
+  const nextSchema = `${schema.slice(0, startIndex)}${SCHEMA_EXTENSION_CHECK_START} ${expectedCheckSql} ${SCHEMA_EXTENSION_CHECK_END}${schema.slice(afterEnd)}`;
+  await writeFile(schemaPath, nextSchema, "utf8");
+}
+
 async function checkGenerated(files) {
   const stale = [];
   for (const [relativePath, expected] of Object.entries(files)) {
@@ -409,6 +425,19 @@ async function checkReadmeSection(expectedSection) {
   }
 }
 
+async function checkSchemaExtensionCheck(expectedCheckSql) {
+  const schema = await readFile(repoPath(SCHEMA_SQL_PATH), "utf8");
+  const startIndex = schema.indexOf(SCHEMA_EXTENSION_CHECK_START);
+  const endIndex = schema.indexOf(SCHEMA_EXTENSION_CHECK_END);
+  if (startIndex < 0 || endIndex <= startIndex) {
+    fail(`schema.sql file-extension check is missing generated markers. Run: node scripts/validate-file-capabilities.mjs --write`);
+  }
+  const actualCheckSql = schema.slice(startIndex + SCHEMA_EXTENSION_CHECK_START.length, endIndex).trim();
+  if (actualCheckSql !== expectedCheckSql) {
+    fail(`schema.sql file-extension check is out of date. Run: node scripts/validate-file-capabilities.mjs --write`);
+  }
+}
+
 async function main() {
   const mode = process.argv[2];
   if (mode !== "--check" && mode !== "--write") {
@@ -423,18 +452,21 @@ async function main() {
     [GENERATED_DOC_PATH]: generateDoc(capabilities),
   };
   const readmeSection = generateReadmeSupportedFilesSection(capabilities);
+  const schemaExtensionCheck = `file_extension IN (${capabilities.filter((capability) => capability.defaultEnabled).map((capability) => sqlQuote(capability.extension)).join(", ")})`;
 
   if (mode === "--write") {
     await writeGenerated(files);
     await writeReadmeSection(readmeSection);
-    console.log(`Wrote ${Object.keys(files).length} file capability artifacts and README supported-file documentation.`);
+    await writeSchemaExtensionCheck(schemaExtensionCheck);
+    console.log(`Wrote ${Object.keys(files).length} file capability artifacts, schema.sql extension check, and README supported-file documentation.`);
     return;
   }
 
   await checkGenerated(files);
   await checkReadmeSection(readmeSection);
+  await checkSchemaExtensionCheck(schemaExtensionCheck);
   console.log(
-    `Validated ${capabilities.length} file capabilities, ${Object.keys(files).length} generated artifacts, and README supported-file documentation.`,
+    `Validated ${capabilities.length} file capabilities, ${Object.keys(files).length} generated artifacts, schema.sql extension check, and README supported-file documentation.`,
   );
 }
 

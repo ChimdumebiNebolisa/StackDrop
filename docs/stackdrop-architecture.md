@@ -70,7 +70,7 @@ No accounts, no implicit full-disk indexing, and no remote indexing or search. T
 
 **Ownership**
 
-- **`.txt`**, **`.pdf`**, **`.docx`**, **`.doc`** (mammoth for `.docx`, antiword for legacy `.doc`, pdf.js + OCR fallback for `.pdf`).
+- Generated enabled file capabilities from `src/shared/fileCapabilities.json` (currently text, PDF, Word document, and legacy Word document).
 - Explicit **parse result** types; no swallowed failures on the public API.
 
 **Does not own**
@@ -83,7 +83,7 @@ No accounts, no implicit full-disk indexing, and no remote indexing or search. T
 **Ownership**
 
 - Tables: `indexed_folders`, `indexed_documents`, `document_search` (FTS5), `scan_runs`.
-- Migrations for schema evolution (canonical extension set `txt` \| `pdf` \| `docx` \| `doc`).
+- Migrations for schema evolution using the generated supported-extension set.
 - Parameterized search (`MATCH` + bound parameters after query normalization).
 
 ## 3. Interfaces (“API” for this desktop app)
@@ -146,7 +146,7 @@ const health = await invoke<{ ok: boolean; packageVersion: string }>("app_health
 
 ### IndexedDocument
 
-- `id`, `folderId`, paths, `fileName`, `fileExtension` (`txt` \| `pdf` \| `docx` \| `doc`), size, modified time, `parseStatus`, `failureStage`, `parseError`, `extractedText`, `updatedAt`
+- `id`, `folderId`, paths, `fileName`, generated supported `fileExtension`, size, modified time, `parseStatus`, `failureStage`, `parseError`, `extractedText`, `updatedAt`
 
 ### ScanRun
 

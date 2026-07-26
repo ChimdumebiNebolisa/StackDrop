@@ -62,22 +62,22 @@ Implications:
 
 ## File-type expansion implications
 
-The database currently enforces the active file-type set in `indexed_documents.file_extension`:
+The database enforces the generated active file-type set from `src/shared/fileCapabilities.json` in `indexed_documents.file_extension`:
 
 ```sql
-file_extension TEXT NOT NULL CHECK (file_extension IN ('txt', 'pdf', 'docx', 'doc'))
+file_extension TEXT NOT NULL CHECK (/* generated */ file_extension IN (...))
 ```
 
-Runtime migrations also treat that four-extension set as canonical:
+Runtime migrations also treat that generated extension set as canonical:
 
-- `migrateIndexedDocumentsSchema` deletes rows outside `txt`, `pdf`, `docx`, and `doc` before rebuilding constraints.
+- `migrateIndexedDocumentsSchema` detects the final extension constraint from generated database capabilities and deletes rows outside that set before rebuilding constraints.
 - Legacy parse statuses `indexed` and `failed` are mapped to `parsed_text` and `parse_failed`.
 - Unsupported legacy rows are not preserved as hidden metadata.
 
 Implications for Phase 2 and Phase 3:
 
-- New supported extensions require updating schema constraints and migration normalization, not only discovery and parser routing.
-- The safest Phase 2 registry boundary should generate or validate the SQL allowed-extension list and migration allowed-extension list from the same canonical capability data.
+- New supported extensions require regenerating schema constraints and migration normalization, not only discovery and parser routing.
+- Phase 2 now generates or validates the SQL allowed-extension list and migration allowed-extension list from the same canonical capability data.
 - Expansion migrations must not delete newly supported rows during the transition from the old four-extension schema.
 - Existing databases with previously unsupported rows cannot be recovered because current migrations delete unsupported rows; future expansion starts from files rediscovered on disk.
 - Per-format maximum file size, parser id, OCR support, native/browser parser location, and default enabled state are not currently persisted.
@@ -132,4 +132,3 @@ Implications:
 - No parser version, parser id, content hash, MIME hint, or capability signature is stored per document.
 - No unsupported-file counters are stored for diagnostics.
 - Platform-specific migration behavior was verified through the TypeScript SQLite test harness, not by opening an existing packaged app database.
-

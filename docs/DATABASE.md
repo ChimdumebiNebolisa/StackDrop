@@ -23,7 +23,7 @@ Canonical schema: [`src/data/db/schema.sql`](../src/data/db/schema.sql). Runtime
 | `absolute_path` | Canonical file path; **UNIQUE** app-wide (prevents duplicate index rows for same file) |
 | `relative_path` | Path relative to root (grouping / display) |
 | `file_name` | Base name for search + UI |
-| `file_extension` | `txt` \| `pdf` \| `docx` \| `doc` — enforced with `CHECK` |
+| `file_extension` | Generated supported file extension from `src/shared/fileCapabilities.json` — enforced with `CHECK` |
 | `size_bytes`, `modified_at` | Filesystem metadata at scan time |
 | `parse_status` | `parsed_text` \| `parsed_ocr` \| `parse_failed` |
 | `failure_stage` | Nullable failure classifier: `read` for byte-read failures, `parse` for parser/OCR/extractor failures |
@@ -55,8 +55,8 @@ Per-folder run: `started_at`, `finished_at`, counters `files_discovered`, `files
 `runMigrations` applies `schema.sql` (`CREATE IF NOT EXISTS`), then `migrateIndexedDocumentsSchema`, which:
 
 1. Detects legacy `indexed_documents` DDL that still allows removed types (e.g. `md`) or predates the canonical triple.
-2. Deletes FTS + document rows whose extension is not `txt` / `pdf` / `docx` / `doc`.
-3. Rebuilds `indexed_documents` with the canonical `CHECK` and restores indexes.
+2. Deletes FTS + document rows whose extension is not in the generated supported-extension set.
+3. Rebuilds `indexed_documents` with the generated canonical `CHECK` and restores indexes.
 
 `migrateFtsSchemaV2` detects the old 2-column FTS table and rebuilds it with the 3-column schema (`file_name`, `relative_path`, `body`), repopulating from `indexed_documents`.
 
